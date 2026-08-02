@@ -262,6 +262,10 @@
       display: none;
     }
 
+    .mobile-only {
+      display: none;
+    }
+
     .choice input {
       width: 16px;
       height: 16px;
@@ -446,6 +450,30 @@
         text-align: center;
       }
 
+      .choices.compact-mobile {
+        display: flex;
+        flex-wrap: nowrap;
+        gap: 6px;
+        overflow-x: auto;
+      }
+
+      .choices.compact-mobile .choice {
+        flex: 0 0 auto;
+        width: auto;
+        min-width: 68px;
+        min-height: 38px;
+        padding: 6px 8px;
+        white-space: nowrap;
+      }
+
+      .desktop-specialty {
+        display: none;
+      }
+
+      .mobile-only {
+        display: block;
+      }
+
       .scale-row,
       .scale-row.seven {
         display: none;
@@ -508,6 +536,10 @@
 
       .choices {
         grid-template-columns: 1fr;
+      }
+
+      .choices.compact-mobile {
+        display: flex;
       }
 
       .slider-grid {
@@ -576,14 +608,14 @@
             </div>
             <div class="field">
               <span class="field-label">2. 您的性别 *</span>
-              <div class="choices">
+              <div class="choices compact-mobile">
                 <label class="choice"><input type="radio" name="gender" value="男" required>男</label>
                 <label class="choice"><input type="radio" name="gender" value="女" required>女</label>
               </div>
             </div>
             <div class="field full">
               <span class="field-label">3. 您的工作地点 *</span>
-              <div class="choices">
+              <div class="choices compact-mobile">
                 <label class="choice"><input type="radio" name="workplace" value="医疗机构" required>医疗机构</label>
                 <label class="choice"><input type="radio" name="workplace" value="司法鉴定机构" required>司法鉴定机构</label>
               </div>
@@ -617,7 +649,7 @@
             </div>
             <div class="field full">
               <span class="field-label">6. 您的最高学历 *</span>
-              <div class="choices">
+              <div class="choices compact-mobile">
                 <label class="choice"><input type="radio" name="education" value="高中/专科及以下" required>高中/专科及以下</label>
                 <label class="choice"><input type="radio" name="education" value="本科" required>本科</label>
                 <label class="choice"><input type="radio" name="education" value="硕士" required>硕士</label>
@@ -626,7 +658,20 @@
             </div>
             <div class="field full">
               <span class="field-label">7. 您的专业背景 *</span>
-              <div class="choices">
+              <select class="mobile-only" id="specialtyMobile" aria-label="专业背景手机下拉选择">
+                <option value="">请选择</option>
+                <option value="内科">内科</option>
+                <option value="外科">外科</option>
+                <option value="妇产">妇产</option>
+                <option value="儿科">儿科</option>
+                <option value="急诊">急诊</option>
+                <option value="影像">影像</option>
+                <option value="病理">病理</option>
+                <option value="法医">法医</option>
+                <option value="传染病/感染科">传染病/感染科</option>
+                <option value="其他">其他，请注明</option>
+              </select>
+              <div class="choices desktop-specialty">
                 <label class="choice"><input type="radio" name="specialty" value="内科" required>内科</label>
                 <label class="choice"><input type="radio" name="specialty" value="外科" required>外科</label>
                 <label class="choice"><input type="radio" name="specialty" value="妇产" required>妇产</label>
@@ -642,7 +687,7 @@
             </div>
             <div class="field full">
               <span class="field-label">8. 您的专业技术职称 *</span>
-              <div class="choices">
+              <div class="choices compact-mobile">
                 <label class="choice"><input type="radio" name="professional_title" value="中级" required>中级</label>
                 <label class="choice"><input type="radio" name="professional_title" value="副高级" required>副高级</label>
                 <label class="choice"><input type="radio" name="professional_title" value="正高级" required>正高级</label>
@@ -895,6 +940,7 @@
       return `
         <div class="question">
           <div class="field-label">${title} *</div>
+          <div class="hint mobile-only">拖动滑动条完成评价</div>
           <input type="hidden" name="${name}" value="${defaultIndex}:${options[defaultIndex - 1]}" data-scale-value="${name}">
           <div class="scale-row ${options.length === 7 ? "seven" : "five"}" role="radiogroup" aria-label="${title}">
             ${options.map((option, index) => `<label class="choice"><input type="radio" name="${name}_choice" value="${index + 1}:${option}" data-scale-choice="${name}" ${index + 1 === defaultIndex ? "checked" : ""}><span>${labels[index]}</span></label>`).join("")}
@@ -902,7 +948,6 @@
           <div class="mobile-scale">
             <input type="range" min="1" max="${options.length}" step="1" value="${defaultIndex}" data-mobile-scale="${name}" data-scale-options='${JSON.stringify(options)}' aria-label="${title}">
             <div class="mobile-scale-output" data-mobile-scale-output="${name}">${defaultIndex}：${options[defaultIndex - 1]}</div>
-            <div class="hint">拖动滑动条完成评价</div>
             <div class="mobile-scale-ends"><span>${options[0]}</span><span>${options[options.length - 1]}</span></div>
           </div>
         </div>
@@ -933,6 +978,22 @@
       }
       form.querySelectorAll("input[name=workplace]").forEach(input => input.addEventListener("change", update));
       update();
+    }
+
+    function setupSpecialtyMobile() {
+      const select = document.getElementById("specialtyMobile");
+      if (!select) return;
+      const radios = [...form.querySelectorAll('input[name="specialty"]')];
+      select.addEventListener("change", () => {
+        radios.forEach(radio => {
+          radio.checked = radio.value === select.value;
+        });
+      });
+      radios.forEach(radio => {
+        radio.addEventListener("change", () => {
+          if (radio.checked) select.value = radio.value;
+        });
+      });
     }
 
     function setupScales() {
@@ -1519,6 +1580,7 @@
       try {
         setupProvinceCity();
         setupConditionalOrg();
+        setupSpecialtyMobile();
         setupScales();
         await initBackend();
         renderInstructions();
