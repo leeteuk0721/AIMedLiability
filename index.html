@@ -1,0 +1,1536 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>专家视角下AI辅助诊疗情景特征对医生过失判断的影响研究</title>
+  <style>
+    :root {
+      --bg: #eef5ff;
+      --panel: #ffffff;
+      --ink: #102033;
+      --muted: #5b6b80;
+      --line: #cddbef;
+      --blue: #1769c2;
+      --blue-dark: #0c4384;
+      --blue-soft: #e7f1ff;
+      --red: #bc2f3f;
+      --yellow: #fff8df;
+      --shadow: 0 18px 44px rgba(23, 74, 137, .12);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+      line-height: 1.7;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    .shell {
+      width: min(1080px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 22px 0 44px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: end;
+      padding: 18px 0;
+    }
+
+    h1 {
+      margin: 0;
+      color: var(--blue-dark);
+      font-size: clamp(24px, 4vw, 38px);
+      line-height: 1.24;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .status-card {
+      min-width: 240px;
+      padding: 13px 14px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .progress-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .track {
+      height: 9px;
+      margin-top: 9px;
+      overflow: hidden;
+      background: #dfeafe;
+      border-radius: 999px;
+    }
+
+    .bar {
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue), #58a6ff);
+      transition: width .2s ease;
+    }
+
+    .panel {
+      min-height: 680px;
+      padding: 28px;
+      background: rgba(255, 255, 255, .96);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .step { display: none; }
+    .step.active { display: block; }
+
+    h2 {
+      margin: 0 0 16px;
+      color: var(--blue-dark);
+      font-size: 24px;
+      line-height: 1.35;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      color: var(--blue-dark);
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p { margin: 9px 0; }
+
+    .block {
+      margin: 14px 0;
+      padding: 16px 18px;
+      background: var(--blue-soft);
+      border: 1px solid #bdd6f7;
+      border-radius: 8px;
+    }
+
+    .block.white {
+      background: #fff;
+      border-color: var(--line);
+    }
+
+    .block.warn {
+      background: var(--yellow);
+      border-color: #ead891;
+      color: #5a4514;
+    }
+
+    .accent {
+      display: inline-block;
+      margin-right: 2px;
+      padding: 1px 5px;
+      color: #fff;
+      background: var(--blue-dark);
+      border-radius: 4px;
+      font-weight: 900;
+    }
+
+    .emph {
+      color: var(--blue-dark);
+      font-weight: 900;
+    }
+
+    .strong {
+      font-weight: 900;
+    }
+
+    .case-key {
+      color: var(--blue-dark);
+      font-weight: 700;
+    }
+
+    .key-doctor { color: #0b5cad; font-weight: 800; }
+    .key-ai { color: #6a3fb5; font-weight: 800; }
+    .key-advice { color: #15803d; font-weight: 800; }
+    .key-behavior { color: #bc2f3f; font-weight: 800; }
+    .key-treatment, .key-actual { color: #15803d; font-weight: 800; }
+
+    .danger-text {
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label, .field-label {
+      color: #1b344f;
+      font-weight: 700;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid #b9cbe3;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(23, 105, 194, .15);
+    }
+
+    .choices, .scale-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+
+    .choices {
+      align-items: stretch;
+    }
+
+    .scale-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 12px;
+    }
+
+    .scale-row.seven {
+      grid-template-columns: repeat(7, minmax(92px, 1fr));
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .scale-row.seven .choice {
+      white-space: normal;
+      line-height: 1.28;
+    }
+
+    .choice {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 7px 10px;
+      background: #fff;
+      border: 1px solid #b9cbe3;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .scale-row .choice {
+      justify-content: center;
+      min-height: 48px;
+      padding: 9px 12px;
+      text-align: center;
+    }
+
+    .mobile-scale {
+      display: none;
+    }
+
+    .choice input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--blue);
+    }
+
+    .question {
+      display: grid;
+      gap: 9px;
+      margin: 16px 0;
+      padding: 15px;
+      background: #fbfdff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .case-section {
+      margin: 14px 0;
+      padding: 16px 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 0 8px 8px 0;
+    }
+
+    .case-section h3 {
+      margin-top: 0;
+      color: var(--blue-dark);
+      font-weight: 800;
+    }
+
+    .same-bg {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 4px 8px;
+      color: var(--blue-dark);
+      background: var(--blue-soft);
+      border: 1px solid #bdd6f7;
+      border-radius: 6px;
+      font-weight: 900;
+    }
+
+    .slider-grid {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    .total-row {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 26px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 43px;
+      padding: 9px 17px;
+      color: var(--blue-dark);
+      background: #fff;
+      border: 1px solid #a9c2e4;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .button.primary {
+      color: #fff;
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    .button:disabled {
+      opacity: .52;
+      cursor: not-allowed;
+    }
+
+    .message {
+      min-height: 24px;
+      margin-top: 12px;
+      color: var(--red);
+      font-weight: 700;
+    }
+
+    .summary {
+      width: 100%;
+      margin-top: 12px;
+      border-collapse: collapse;
+    }
+
+    .summary th, .summary td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .summary th {
+      width: 150px;
+      color: var(--muted);
+    }
+
+    .config-warning {
+      display: none;
+      margin-bottom: 14px;
+    }
+
+    @media (max-width: 760px) {
+      .shell {
+        width: min(100vw - 18px, 1080px);
+        padding: 10px 0 28px;
+      }
+
+      header, .grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        gap: 12px;
+        padding: 10px 0 12px;
+      }
+
+      h1 {
+        font-size: 23px;
+      }
+
+      h2 {
+        font-size: 21px;
+      }
+
+      h3 {
+        font-size: 17px;
+      }
+
+      .panel {
+        padding: 16px;
+      }
+
+      .status-card {
+        min-width: 0;
+      }
+
+      .block,
+      .question,
+      .case-section {
+        padding: 13px;
+      }
+
+      .choices {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .choices .choice {
+        justify-content: center;
+        width: 100%;
+        min-height: 46px;
+        text-align: center;
+      }
+
+      .scale-row,
+      .scale-row.seven {
+        display: none;
+      }
+
+      .mobile-scale {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mobile-scale input[type="range"] {
+        width: 100%;
+      }
+
+      .mobile-scale-output {
+        min-height: 28px;
+        color: var(--blue-dark);
+        font-size: 16px;
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .mobile-scale-ends {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .scale-row .choice {
+        min-height: 48px;
+        padding: 9px 8px;
+      }
+
+      .slider-grid {
+        grid-template-columns: 76px 1fr;
+      }
+
+      .actions {
+        flex-direction: column-reverse;
+        gap: 10px;
+      }
+
+      .button {
+        width: 100%;
+      }
+    }
+
+    @media (min-width: 761px) {
+      .actions {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 420px) {
+      body {
+        font-size: 15px;
+      }
+
+      .choices {
+        grid-template-columns: 1fr;
+      }
+
+      .slider-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>专家视角下AI辅助诊疗情景特征<br>对医生过失判断的影响研究</h1>
+        <p class="subtitle">本研究采用随机对照情景实验设计。系统将保存您的答题进度，同一设备、同一浏览器可继续作答。</p>
+      </div>
+      <div class="status-card" aria-live="polite">
+        <div class="progress-line"><span id="stepText">初始化</span><span id="stepPercent">0%</span></div>
+        <div class="track"><div class="bar" id="progressBar"></div></div>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="block warn config-warning" id="configWarning">
+        数据库尚未配置。请在页面代码顶部填写 Supabase 项目 URL 和 anon key 后再正式发布。
+      </div>
+      <div class="block warn">
+        如页面短暂卡顿或按钮响应较慢，请稍等几秒，系统正在保存进度。
+      </div>
+
+      <form id="surveyForm">
+        <input type="hidden" name="_subject" value="AI辅助诊疗情景实验答题记录">
+        <input type="hidden" name="_captcha" value="false">
+        <input type="hidden" name="_template" value="table">
+        <input type="hidden" name="payload_json" id="payloadJson">
+        <input type="hidden" name="payload_csv" id="payloadCsv">
+
+        <div class="step active" data-step="intro">
+          <h2>研究前言</h2>
+          <div class="block white">
+            <p><span class="accent">研究背景：</span>随着人工智能技术逐渐进入医疗领域，其安全性问题逐渐受到人们关注。在AI技术获批进入临床后，医生在使用过程中可能因各种因素错误采纳或拒绝AI建议，<span class="emph">当这些决策导致患者不良后果时，医生的行为是否构成医疗过失，成为AI医疗应用中的重要问题</span>。而目前司法实践中对此问题<span class="emph">尚缺乏统一认识</span>。</p>
+          </div>
+          <div class="block white">
+            <p><span class="accent">研究目标：</span>本研究拟通过模拟真实医疗场景，了解<span class="emph">临床医学/法医学专家对不同AI应用条件下医生行为合理性的判断</span>。</p>
+          </div>
+          <div class="block white">
+            <p><span class="accent">实验任务：</span></p>
+            <p>个人信息（简单的职业背景和AI使用经验调查）</p>
+            <p>情景实验：在本次实验中，您一共需要完成4个情景实验，每个情景实验单页呈现，填写后不可返回上一页，请认真作答，感谢您的配合。</p>
+          </div>
+          <div class="block white">
+            <p><span class="accent">注意事项：</span>整体研究预计耗时<span class="emph">15-20分钟</span>，如遇工作打断，请通过同台设备，同一浏览器打开链接即可恢复进度。</p>
+            <p><span class="accent">作答建议：</span>由于案例内容较多，我们推荐您使用电脑作答。</p>
+            <p><span class="accent">隐私保护：</span>本研究遵循严格的保密原则，您填写的所有信息仅用于学术研究统计，绝不会向任何第三方透露您的个人隐私。本研究伦理批号为：<span class="emph">xxxxx</span></p>
+            <p><span class="accent">联系我们：</span>在填写过程中如有疑问，请联系项目联络员：解霄芸 电话/微信号：18061291721/xxy15148550721</p>
+            <p><span class="accent">支持单位：</span>本研究由华中科技大学附属协和医院、同济医学院；华中科技大学医药卫生管理学院、法医学院；重庆大学附属第一医院联合开展。</p>
+          </div>
+          <p>若您已阅读确认上述信息并自愿参与，请点击“下一步”，感谢您的支持与配合。</p>
+        </div>
+
+        <div class="step" data-step="profile">
+          <h2>第一部分：人口学及基本信息</h2>
+          <div class="grid">
+            <div class="field">
+              <label for="age">1. 您的年龄：_____岁 *</label>
+              <input id="age" name="age" type="number" min="18" max="99" step="1" required>
+            </div>
+            <div class="field">
+              <span class="field-label">2. 您的性别 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="gender" value="男" required>男</label>
+                <label class="choice"><input type="radio" name="gender" value="女" required>女</label>
+              </div>
+            </div>
+            <div class="field full">
+              <span class="field-label">3. 您的工作地点 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="workplace" value="医疗机构" required>医疗机构</label>
+                <label class="choice"><input type="radio" name="workplace" value="司法鉴定机构" required>司法鉴定机构</label>
+              </div>
+            </div>
+            <div class="field full" id="medicalOrgField">
+              <span class="field-label">4. 您的工作机构类型 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="medical_org_type" value="三级医院">三级医院</label>
+                <label class="choice"><input type="radio" name="medical_org_type" value="二级医院">二级医院</label>
+                <label class="choice"><input type="radio" name="medical_org_type" value="基层医疗卫生机构">基层医疗卫生机构</label>
+                <label class="choice"><input type="radio" name="medical_org_type" value="其他">其他，请注明</label>
+              </div>
+              <input name="medical_org_other" type="text" placeholder="如选择其他，请注明">
+            </div>
+            <div class="field full" id="forensicOrgField">
+              <span class="field-label">4. 您的工作机构类型 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="forensic_org_type" value="公立鉴定机构">公立鉴定机构</label>
+                <label class="choice"><input type="radio" name="forensic_org_type" value="社会鉴定机构">社会鉴定机构</label>
+                <label class="choice"><input type="radio" name="forensic_org_type" value="其他">其他，请注明</label>
+              </div>
+              <input name="forensic_org_other" type="text" placeholder="如选择其他，请注明">
+            </div>
+            <div class="field">
+              <label for="province">5. 您所在地区：省份 *</label>
+              <select id="province" name="province" required></select>
+            </div>
+            <div class="field">
+              <label for="city">城市 *</label>
+              <select id="city" name="city" required></select>
+            </div>
+            <div class="field full">
+              <span class="field-label">6. 您的最高学历 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="education" value="高中/专科及以下" required>高中/专科及以下</label>
+                <label class="choice"><input type="radio" name="education" value="本科" required>本科</label>
+                <label class="choice"><input type="radio" name="education" value="硕士" required>硕士</label>
+                <label class="choice"><input type="radio" name="education" value="博士及以上" required>博士及以上</label>
+              </div>
+            </div>
+            <div class="field full">
+              <span class="field-label">7. 您的专业背景 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="specialty" value="内科" required>内科</label>
+                <label class="choice"><input type="radio" name="specialty" value="外科" required>外科</label>
+                <label class="choice"><input type="radio" name="specialty" value="妇产" required>妇产</label>
+                <label class="choice"><input type="radio" name="specialty" value="儿科" required>儿科</label>
+                <label class="choice"><input type="radio" name="specialty" value="急诊" required>急诊</label>
+                <label class="choice"><input type="radio" name="specialty" value="影像" required>影像</label>
+                <label class="choice"><input type="radio" name="specialty" value="病理" required>病理</label>
+                <label class="choice"><input type="radio" name="specialty" value="法医" required>法医</label>
+                <label class="choice"><input type="radio" name="specialty" value="传染病/感染科" required>传染病/感染科</label>
+                <label class="choice"><input type="radio" name="specialty" value="其他" required>其他，请注明</label>
+              </div>
+              <input name="specialty_other" type="text" placeholder="如选择其他，请注明">
+            </div>
+            <div class="field full">
+              <span class="field-label">8. 您的专业技术职称 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="professional_title" value="中级" required>中级</label>
+                <label class="choice"><input type="radio" name="professional_title" value="副高级" required>副高级</label>
+                <label class="choice"><input type="radio" name="professional_title" value="正高级" required>正高级</label>
+              </div>
+            </div>
+            <div class="field">
+              <label for="workYears">9. 您从事医疗鉴定相关工作的年限：____年 *</label>
+              <input id="workYears" name="work_years" type="number" min="0" step="1" required>
+            </div>
+            <div class="field">
+              <label for="caseTimes">10. 您近3年参与医疗损害责任认定的次数：____次 *</label>
+              <input id="caseTimes" name="liability_case_times" type="number" min="0" step="1" required>
+            </div>
+          </div>
+          <div id="profileScales"></div>
+          <p class="block warn">确认上述个人信息无误后，点击下一页进入情景实验环节。</p>
+        </div>
+
+        <div class="step" data-step="instructions">
+          <h2>第二部分：诊疗案例与医疗责任评价</h2>
+          <div id="experimentInstructions"></div>
+        </div>
+
+        <div id="caseSteps"></div>
+
+        <div class="step" data-step="post">
+          <h2>第三部分：案例结束后AI使用意愿评价</h2>
+          <div id="postScales"></div>
+          <p class="block white">问卷填写结束，感谢您对本项目的支持！</p>
+        </div>
+
+        <div class="step" data-step="final">
+          <h2>提交完成</h2>
+          <div class="block white">
+            <p>您的答题记录已保存。点击下方按钮可下载一份本地备份；正式数据以数据库记录为准，同时页面会尝试将完整记录发送至研究邮箱 xxy996269@163.com。</p>
+          </div>
+          <table class="summary" id="summaryTable"></table>
+          <div class="actions">
+            <button type="button" class="button" id="downloadBtn">下载JSON备份</button>
+            <button type="button" class="button" id="downloadCsvBtn">下载Excel CSV</button>
+            <button type="button" class="button" id="downloadExcelBtn">下载Excel表格</button>
+            <button type="button" class="button primary" id="emailBtn">发送邮箱备份</button>
+          </div>
+        </div>
+      </form>
+
+      <div class="message" id="message"></div>
+      <div class="actions" id="wizardActions">
+        <button type="button" class="button" id="prevBtn">上一页</button>
+        <button type="button" class="button primary" id="nextBtn">下一步</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script>
+    const SUPABASE_URL = "https://ygjoqsrfolgxzihdtqnu.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_rgunkStzBV1_0Pxb76C0NQ_1dZSIBuQ";
+    const EMAIL_TO = "xxy996269@163.com";
+    const EMAILJS_PUBLIC_KEY = "pFjXVYhJk0aFdsZ5D";
+    const EMAILJS_SERVICE_ID = "service_cgn445g";
+    const EMAILJS_TEMPLATE_ID = "template_xd59veu";
+    const STORAGE_KEY = "ai_fault_experiment_respondent_id";
+    const BACKUP_KEY = "ai_fault_experiment_pending_backup";
+
+    const groups = {
+      control: "对照组：不使用 AI",
+      a: "干预组A组：推荐常规建议的通用级AI",
+      b: "干预组B组：推荐不常规的通用级AI",
+      c: "干预组C块：推荐常规建议的专业级AI",
+      d: "干预组D块：推荐不常规的专业级AI"
+    };
+
+    const provinceCities = {
+      "北京市": ["北京市"], "天津市": ["天津市"], "上海市": ["上海市"], "重庆市": ["重庆市"],
+      "河北省": ["石家庄市", "唐山市", "保定市", "邯郸市", "秦皇岛市", "张家口市", "承德市", "沧州市", "廊坊市", "衡水市"],
+      "山西省": ["太原市", "大同市", "阳泉市", "长治市", "晋城市", "朔州市", "晋中市", "运城市", "忻州市", "临汾市", "吕梁市"],
+      "辽宁省": ["沈阳市", "大连市", "鞍山市", "抚顺市", "本溪市", "丹东市", "锦州市", "营口市", "阜新市", "辽阳市", "盘锦市", "铁岭市", "朝阳市", "葫芦岛市"],
+      "吉林省": ["长春市", "吉林市", "四平市", "辽源市", "通化市", "白山市", "松原市", "白城市", "延边朝鲜族自治州"],
+      "黑龙江省": ["哈尔滨市", "齐齐哈尔市", "牡丹江市", "佳木斯市", "大庆市", "鸡西市", "双鸭山市", "伊春市", "七台河市", "鹤岗市", "黑河市", "绥化市", "大兴安岭地区"],
+      "江苏省": ["南京市", "无锡市", "徐州市", "常州市", "苏州市", "南通市", "连云港市", "淮安市", "盐城市", "扬州市", "镇江市", "泰州市", "宿迁市"],
+      "浙江省": ["杭州市", "宁波市", "温州市", "嘉兴市", "湖州市", "绍兴市", "金华市", "衢州市", "舟山市", "台州市", "丽水市"],
+      "安徽省": ["合肥市", "芜湖市", "蚌埠市", "淮南市", "马鞍山市", "淮北市", "铜陵市", "安庆市", "黄山市", "滁州市", "阜阳市", "宿州市", "六安市", "亳州市", "池州市", "宣城市"],
+      "福建省": ["福州市", "厦门市", "莆田市", "三明市", "泉州市", "漳州市", "南平市", "龙岩市", "宁德市"],
+      "江西省": ["南昌市", "景德镇市", "萍乡市", "九江市", "新余市", "鹰潭市", "赣州市", "吉安市", "宜春市", "抚州市", "上饶市"],
+      "山东省": ["济南市", "青岛市", "淄博市", "枣庄市", "东营市", "烟台市", "潍坊市", "济宁市", "泰安市", "威海市", "日照市", "临沂市", "德州市", "聊城市", "滨州市", "菏泽市"],
+      "河南省": ["郑州市", "开封市", "洛阳市", "平顶山市", "安阳市", "鹤壁市", "新乡市", "焦作市", "濮阳市", "许昌市", "漯河市", "三门峡市", "南阳市", "商丘市", "信阳市", "周口市", "驻马店市", "济源市"],
+      "湖北省": ["武汉市", "黄石市", "十堰市", "宜昌市", "襄阳市", "鄂州市", "荆门市", "孝感市", "荆州市", "黄冈市", "咸宁市", "随州市", "恩施土家族苗族自治州", "仙桃市", "潜江市", "天门市", "神农架林区"],
+      "湖南省": ["长沙市", "株洲市", "湘潭市", "衡阳市", "邵阳市", "岳阳市", "常德市", "张家界市", "益阳市", "郴州市", "永州市", "怀化市", "娄底市", "湘西土家族苗族自治州"],
+      "广东省": ["广州市", "深圳市", "珠海市", "汕头市", "佛山市", "韶关市", "湛江市", "肇庆市", "江门市", "茂名市", "惠州市", "梅州市", "汕尾市", "河源市", "阳江市", "清远市", "东莞市", "中山市", "潮州市", "揭阳市", "云浮市"],
+      "广西壮族自治区": ["南宁市", "柳州市", "桂林市", "梧州市", "北海市", "防城港市", "钦州市", "贵港市", "玉林市", "百色市", "贺州市", "河池市", "来宾市", "崇左市"],
+      "海南省": ["海口市", "三亚市", "三沙市", "儋州市", "五指山市", "琼海市", "文昌市", "万宁市", "东方市", "其他"],
+      "四川省": ["成都市", "自贡市", "攀枝花市", "泸州市", "德阳市", "绵阳市", "广元市", "遂宁市", "内江市", "乐山市", "南充市", "眉山市", "宜宾市", "广安市", "达州市", "雅安市", "巴中市", "资阳市", "阿坝藏族羌族自治州", "甘孜藏族自治州", "凉山彝族自治州"],
+      "贵州省": ["贵阳市", "六盘水市", "遵义市", "安顺市", "毕节市", "铜仁市", "黔西南布依族苗族自治州", "黔东南苗族侗族自治州", "黔南布依族苗族自治州"],
+      "云南省": ["昆明市", "曲靖市", "玉溪市", "保山市", "昭通市", "丽江市", "普洱市", "临沧市", "楚雄彝族自治州", "红河哈尼族彝族自治州", "文山壮族苗族自治州", "西双版纳傣族自治州", "大理白族自治州", "德宏傣族景颇族自治州", "怒江傈僳族自治州", "迪庆藏族自治州"],
+      "西藏自治区": ["拉萨市", "日喀则市", "昌都市", "林芝市", "山南市", "那曲市", "阿里地区"],
+      "陕西省": ["西安市", "铜川市", "宝鸡市", "咸阳市", "渭南市", "延安市", "汉中市", "榆林市", "安康市", "商洛市"],
+      "甘肃省": ["兰州市", "嘉峪关市", "金昌市", "白银市", "天水市", "武威市", "张掖市", "平凉市", "酒泉市", "庆阳市", "定西市", "陇南市", "临夏回族自治州", "甘南藏族自治州"],
+      "青海省": ["西宁市", "海东市", "海北藏族自治州", "黄南藏族自治州", "海南藏族自治州", "果洛藏族自治州", "玉树藏族自治州", "海西蒙古族藏族自治州"],
+      "宁夏回族自治区": ["银川市", "石嘴山市", "吴忠市", "固原市", "中卫市"],
+      "新疆维吾尔自治区": ["乌鲁木齐市", "克拉玛依市", "吐鲁番市", "哈密市", "昌吉回族自治州", "博尔塔拉蒙古自治州", "巴音郭楞蒙古自治州", "阿克苏地区", "克孜勒苏柯尔克孜自治州", "喀什地区", "和田地区", "伊犁哈萨克自治州", "塔城地区", "阿勒泰地区", "其他"],
+      "内蒙古自治区": ["呼和浩特市", "包头市", "乌海市", "赤峰市", "通辽市", "鄂尔多斯市", "呼伦贝尔市", "巴彦淖尔市", "乌兰察布市", "兴安盟", "锡林郭勒盟", "阿拉善盟"],
+      "香港特别行政区": ["香港特别行政区"],
+      "澳门特别行政区": ["澳门特别行政区"],
+      "台湾省": ["台北市", "新北市", "桃园市", "台中市", "台南市", "高雄市", "其他"],
+      "其他": ["其他"]
+    };
+
+    const fivePoint = ["从未", "偶尔", "有时", "经常", "总是"];
+    const profileScaleQuestions = [
+      ["daily_ai_frequency", "11. 您在日常生活中使用AI的频率", fivePoint],
+      ["ai_knowledge_level", "12. 您自评个人的AI知识和技能水平", ["非常差", "差", "中", "良", "优"]],
+      ["professional_ai_frequency", "13. 您在临床工作/专业工作中使用AI的频率", fivePoint],
+      ["attitude_ai_clinical", "14. 您对于医生在临床决策过程中使用AI进行辅助的态度", ["完全不支持", "不支持", "中立", "支持", "非常支持"]],
+      ["confidence_ai_info", "15. 您对在临床决策过程中AI辅助信息的信心", ["完全没信心", "比较没信心", "没信心", "一般", "有信心", "比较有信心", "完全有信心"]],
+      ["willingness_ai_use", "16. 您对在临床决策过程中使用AI辅助的意愿", ["完全不愿意", "不愿意", "有点不愿意", "中立", "有点愿意", "愿意", "完全愿意"]]
+    ];
+
+    const caseEvaluationQuestions = [
+      ["same_decision", "2.2 您认为一个理性的医生，在相同的条件下，多大程度上会和医生张某一样做出同样的决策?", ["绝对不会", "大概率不会", "不会", "不一定", "会", "大概率会", "绝对会"]],
+      ["confidence", "2.5 您对自己回答上述问题的自信程度?", ["非常没自信", "比较没自信", "没自信", "一般", "有自信", "比较有自信", "非常有自信"]]
+    ];
+
+    const postQuestions = [
+      ["future_ai_willingness", "1 您在未来临床实践中使用AI辅助临床决策的使用意愿?", ["非常不愿意", "比较不愿意", "不愿意", "中立", "愿意", "比较愿意", "非常愿意"]],
+      ["future_ai_confidence", "2 您在未来临床实践中使用AI辅助临床决策的使用信心?", ["完全没信心", "比较没信心", "没信心", "一般", "有信心", "比较有信心", "完全有信心"]]
+    ];
+
+    const background = [
+      '医生张某接诊了一位<span class="strong">严重细菌感染且伴有全身炎症反应</span>的患者李某。根据<span class="strong">临床指南</span>，需要立即进行<span class="strong">经验性抗生素治疗</span>，目前有两种治疗方案可供选择。',
+      '<span class="strong">常规治疗方案：</span>选用临床最常用的广谱抗生素组合。该方案对<span class="strong">大多数此类感染患者效果最佳</span>，但对少数携带特殊耐药菌的患者效果较差。',
+      '<span class="strong">非常规治疗方案：</span>选用针对特定耐药菌的限制级抗生素组合。该方案对<span class="strong">少数携带特定耐药菌感染的患者效果最佳</span>，但对大多数患者效果较差。'
+    ];
+
+    const groupCases = {
+      control: [
+        { doctor: "县医院主治医生", aiAbility: "/", aiAdvice: "/", behavior: "/", finalTreatment: "常规治疗方案" },
+        { doctor: "县医院主治医生", aiAbility: "/", aiAdvice: "/", behavior: "/", finalTreatment: "非常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "/", aiAdvice: "/", behavior: "/", finalTreatment: "常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "/", aiAdvice: "/", behavior: "/", finalTreatment: "非常规治疗方案" }
+      ],
+      a: [
+        { doctor: "县医院主治医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "接受", finalTreatment: "常规治疗方案" },
+        { doctor: "县医院主治医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "拒绝", finalTreatment: "非常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "接受", finalTreatment: "常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "拒绝", finalTreatment: "非常规治疗方案" }
+      ],
+      b: [
+        { doctor: "县医院主治医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "拒绝", finalTreatment: "常规治疗方案" },
+        { doctor: "县医院主治医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "接受", finalTreatment: "非常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "拒绝", finalTreatment: "常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与县医院主治医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "接受", finalTreatment: "非常规治疗方案" }
+      ],
+      c: [
+        { doctor: "县医院主治医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "接受", finalTreatment: "常规治疗方案" },
+        { doctor: "县医院主治医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "拒绝", finalTreatment: "非常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "接受", finalTreatment: "常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "常规治疗方案", behavior: "拒绝", finalTreatment: "非常规治疗方案" }
+      ],
+      d: [
+        { doctor: "县医院主治医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "拒绝", finalTreatment: "常规治疗方案" },
+        { doctor: "县医院主治医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "接受", finalTreatment: "非常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "拒绝", finalTreatment: "常规治疗方案" },
+        { doctor: "三甲医院主任医生", aiAbility: "与三甲医院主任医生相当的治疗方案推荐能力", aiAdvice: "非常规治疗方案", behavior: "接受", finalTreatment: "非常规治疗方案" }
+      ]
+    };
+
+    function validUuid(value) {
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || "");
+    }
+
+    const savedRespondentId = localStorage.getItem(STORAGE_KEY);
+    const state = {
+      respondentId: validUuid(savedRespondentId) ? savedRespondentId : crypto.randomUUID(),
+      groupCode: null,
+      groupLabel: null,
+      cases: [],
+      step: 0,
+      lockedUntil: 0,
+      startedAt: new Date().toISOString(),
+      savedPayload: null,
+      lastSaveOk: false,
+      lastSaveAt: "",
+      lastSaveError: ""
+    };
+
+    localStorage.setItem(STORAGE_KEY, state.respondentId);
+
+    const form = document.getElementById("surveyForm");
+    const stepsHost = document.getElementById("caseSteps");
+    const message = document.getElementById("message");
+    const nextBtn = document.getElementById("nextBtn");
+    const prevBtn = document.getElementById("prevBtn");
+    const wizardActions = document.getElementById("wizardActions");
+    const stepText = document.getElementById("stepText");
+    const stepPercent = document.getElementById("stepPercent");
+    const progressBar = document.getElementById("progressBar");
+    const payloadJson = document.getElementById("payloadJson");
+    const payloadCsv = document.getElementById("payloadCsv");
+    const summaryTable = document.getElementById("summaryTable");
+
+    let steps = ["intro", "profile", "instructions", "post", "final"];
+
+    function isConfigured() {
+      return !SUPABASE_URL.includes("YOUR-PROJECT-REF") && !SUPABASE_ANON_KEY.includes("YOUR-SUPABASE");
+    }
+
+    async function rpc(name, body) {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    }
+
+    function describeError(error) {
+      const text = String(error && error.message ? error.message : error);
+      if (text.includes("Failed to fetch")) return "无法连接数据库服务";
+      if (text.includes("JWT")) return "Supabase key 无效或权限不足";
+      if (text.includes("invalid input syntax for type uuid")) return "本机缓存的受访者ID格式异常，已自动修复";
+      return text.slice(0, 180);
+    }
+
+    function emailJsConfigured() {
+      return !EMAILJS_PUBLIC_KEY.includes("YOUR_EMAILJS")
+        && !EMAILJS_SERVICE_ID.includes("YOUR_EMAILJS")
+        && !EMAILJS_TEMPLATE_ID.includes("YOUR_EMAILJS");
+    }
+
+    function shuffle(items) {
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function renderScale(id, title, options, prefix = "") {
+      const name = prefix ? `${prefix}_${id}` : id;
+      const labels = options.map(option => options.length === 7 && option.length >= 4 ? `${option.slice(0, 2)}<br>${option.slice(2)}` : option);
+      const defaultIndex = Math.ceil(options.length / 2);
+      return `
+        <div class="question">
+          <div class="field-label">${title} *</div>
+          <input type="hidden" name="${name}" value="${defaultIndex}:${options[defaultIndex - 1]}" data-scale-value="${name}">
+          <div class="scale-row ${options.length === 7 ? "seven" : "five"}" role="radiogroup" aria-label="${title}">
+            ${options.map((option, index) => `<label class="choice"><input type="radio" name="${name}_choice" value="${index + 1}:${option}" data-scale-choice="${name}" ${index + 1 === defaultIndex ? "checked" : ""}><span>${labels[index]}</span></label>`).join("")}
+          </div>
+          <div class="mobile-scale">
+            <input type="range" min="1" max="${options.length}" step="1" value="${defaultIndex}" data-mobile-scale="${name}" data-scale-options='${JSON.stringify(options)}' aria-label="${title}">
+            <div class="mobile-scale-output" data-mobile-scale-output="${name}">${defaultIndex}：${options[defaultIndex - 1]}</div>
+            <div class="hint">拖动滑动条完成评价</div>
+            <div class="mobile-scale-ends"><span>${options[0]}</span><span>${options[options.length - 1]}</span></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function setupProvinceCity() {
+      const province = document.getElementById("province");
+      const city = document.getElementById("city");
+      province.innerHTML = `<option value="">请选择省份</option>${Object.keys(provinceCities).map(item => `<option value="${item}">${item}</option>`).join("")}`;
+      function syncCity() {
+        const cities = provinceCities[province.value] || [];
+        city.innerHTML = `<option value="">请选择城市</option>${cities.map(item => `<option value="${item}">${item}</option>`).join("")}`;
+      }
+      province.addEventListener("change", syncCity);
+      syncCity();
+    }
+
+    function setupConditionalOrg() {
+      const medical = document.getElementById("medicalOrgField");
+      const forensic = document.getElementById("forensicOrgField");
+      function update() {
+        const workplace = form.elements.workplace.value;
+        medical.style.display = workplace === "医疗机构" ? "grid" : "none";
+        forensic.style.display = workplace === "司法鉴定机构" ? "grid" : "none";
+        [...medical.querySelectorAll("input[type=radio]")].forEach(input => input.required = workplace === "医疗机构");
+        [...forensic.querySelectorAll("input[type=radio]")].forEach(input => input.required = workplace === "司法鉴定机构");
+      }
+      form.querySelectorAll("input[name=workplace]").forEach(input => input.addEventListener("change", update));
+      update();
+    }
+
+    function setupScales() {
+      document.getElementById("profileScales").innerHTML = profileScaleQuestions.map(q => renderScale(q[0], q[1], q[2])).join("");
+      document.getElementById("postScales").innerHTML = postQuestions.map(q => renderScale(q[0], q[1], q[2])).join("");
+    }
+
+    function oppositeTreatment(treatment) {
+      return treatment === "常规治疗方案" ? "非常规治疗方案" : "常规治疗方案";
+    }
+
+    function renderInstructions() {
+      const control = state.groupCode === "control";
+      document.getElementById("experimentInstructions").innerHTML = control ? `
+        <div class="block white"><p><span class="accent">实验内容：</span>您将看到<span class="emph">4个不同的模拟场景案例</span>，在每个模拟场景中，患者都出现了<span class="emph">疾病恶化</span>，但<span class="emph">医生资质存在差异</span>。</p><p>我们想要了解您在不同场景下，您是否认为模拟场景下的医生存在<span class="emph">过失和潜在法律责任</span>。</p></div>
+        <div class="block white"><p><span class="accent">注意事项：</span></p><p>请您根据模拟案例中可获得的信息对医生行为进行判断，<span class="emph">不假设未提供的额外信息</span>；</p><p>请务必注意模拟案例中<span class="emph">医生决策场景的差别</span>；</p><p>填答答案无对错之分，请您根据您的专业知识真实作答即可；</p><p>总计<span class="emph">4个案例</span>，每页呈现<span class="emph">1个案例</span>，提交后<span class="emph">不可回溯修改</span>，请您确认答案后再点击下一页。</p></div>
+      ` : `
+        <div class="block white"><p><span class="accent">实验内容：</span>您将看到<span class="emph">4个不同的模拟场景案例</span>，描述某医生在<span class="emph">使用或不使用AI情景</span>下的诊疗决策。在每个模拟场景中，患者都出现了<span class="emph">疾病恶化</span>，但<span class="emph">医生、所使用AI、AI建议和医生对AI建议的使用行为</span>存在差异。</p><p>我们想要了解您在不同AI使用的场景下，您是否认为模拟场景下的医生存在<span class="emph">过失和潜在法律责任</span>。</p></div>
+        <div class="block white"><p><span class="accent">注意事项：</span></p><p>请您根据模拟案例中可获得的信息对医生行为进行判断，<span class="emph">不假设未提供的额外信息</span>；</p><p>请务必注意模拟案例中医生决策场景的差别，包括：<span class="emph">医生的不同、AI的不同、AI建议的不同，以及医生使用AI建议行为的不同</span>；</p><p>填答答案无对错之分，请您根据您的专业知识真实作答即可；</p><p>总计<span class="emph">4个案例</span>，每页呈现<span class="emph">1个案例</span>，提交后<span class="emph">不可回溯修改</span>，请您确认答案后再点击下一页。</p></div>
+      `;
+    }
+
+    function caseScenario(item) {
+      if (state.groupCode === "control") {
+        return `<p>医生张某是<span class="key-doctor">${item.doctor}</span>，基于自身经验和对患者病历分析，医生张某决定使用<span class="key-treatment">${item.finalTreatment}</span>。</p>`;
+      }
+      const acceptText = item.behavior === "接受" ? `医生张某<span class="key-behavior">接受AI建议</span>，决定使用<span class="key-treatment">${item.finalTreatment}</span>。` : `医生张某<span class="key-behavior">拒绝AI建议</span>，决定使用<span class="key-treatment">${item.finalTreatment}</span>。`;
+      return `
+        <p>医生张某是<span class="key-doctor">${item.doctor}</span>。</p>
+        <p>其所在医院为所有严重细菌感染患者提供了<span class="key-ai">AI治疗决策辅助选择工具</span>，它已经完成了所有相关审批流程，并用于分析患者数据，来评估常规和非常规治疗方案，哪个对严重细菌感染患者更有可能成功。历史数据表明，该AI工具具备<span class="key-ai">${item.aiAbility}</span>。</p>
+        <p>基于对李某的数据分析，AI建议为李某提供<span class="key-advice">${item.aiAdvice}</span>。基于自身经验和对患者病例的分析。</p>
+        <p>${acceptText}</p>
+      `;
+    }
+
+    function renderCase(item, index) {
+      const actual = oppositeTreatment(item.finalTreatment);
+      return `
+        <div class="step" data-step="case_${index + 1}">
+          <h2>案例 ${index + 1}</h2>
+          <div class="case-section">
+            <h3>[背景]</h3>
+            <div class="same-bg">所有背景均一致</div>
+            ${background.map(text => `<p>${text}</p>`).join("")}
+          </div>
+          <div class="case-section">
+            <h3>[临床情境案例]</h3>
+            ${caseScenario(item)}
+          </div>
+          <div class="case-section">
+            <h3>[结果]</h3>
+            <p>后续的临床结果证实，医生张某的<span class="key-treatment">${item.finalTreatment}</span>未能有效覆盖患者的实际致病菌。患者李某本应接受<span class="key-actual">${actual}</span>。</p>
+            <p>由于未能及时得到针对性治疗，李某的感染未能得到控制，最终导致其病情恶化并转入ICU。</p>
+          </div>
+          <div class="case-section">
+            <h3>[案例分析]</h3>
+            <p>在此情况下，患者李某对医生张某提起了诉讼，认为其存在医疗事故。在前期沟通中，双方一致同意<span class="strong">张某的治疗方案导致了患者李某病情恶化，是其人身损害的主要原因</span>。</p>
+            <p>然而，双方争论的焦点是：<span class="strong">医生张某是否存在过错，是否尽到了作为医生的注意义务？</span></p>
+            <p>在此背景下，法院邀请您对上述案例中医生张某<span class="strong">是否存在过错，是否尽到注意义务</span>等进行评价。</p>
+            <p>请注意：本研究探讨的是，在上述模拟情境下，张某的决策过程是否达到了<span class="strong">“一个理性医生在相同情境下应尽的谨慎注意义务”</span>。请您根据自身经验和经历，回答以下问题（无正确答案）：</p>
+          </div>
+          <h3>1. 案例理解评价</h3>
+          <div class="question" data-qc="doctor" data-correct="${item.doctor}">
+            <div class="field-label">1.1 在本案例中，张某的职称是? *</div>
+            <div class="choices">
+              <label class="choice"><input type="radio" name="case_${index + 1}_qc_doctor" value="县医院主治医生" required>县医院主治医生</label>
+              <label class="choice"><input type="radio" name="case_${index + 1}_qc_doctor" value="三甲医院主任医生" required>三甲医院主任医生</label>
+            </div>
+          </div>
+          <div class="question" data-qc="treatment" data-correct="${item.finalTreatment}">
+            <div class="field-label">1.2 在本案例中，张某最终的治疗方案选择是? *</div>
+            <div class="choices">
+              <label class="choice"><input type="radio" name="case_${index + 1}_qc_treatment" value="常规治疗方案" required>常规治疗方案</label>
+              <label class="choice"><input type="radio" name="case_${index + 1}_qc_treatment" value="非常规治疗方案" required>非常规治疗方案</label>
+            </div>
+          </div>
+          <h3>2. 结局评价</h3>
+          <div class="question">
+            <div class="field-label">2.1 您认为，医生张某在上述案例中是否履行了作为医生的注意义务? *</div>
+            <div class="hint">注意义务：指医生在诊疗活动中，医生诊疗决策应符合"一个理性的医生在面临相同情境时会作出类似诊疗行为"的要求，应尽到与当时医疗水平相当的诊疗义务。违反注意义务代表医生可能存在医疗过错。</div>
+            <div class="choices">
+              <label class="choice"><input type="radio" name="case_${index + 1}_duty_fulfilled" value="是" required>是</label>
+              <label class="choice"><input type="radio" name="case_${index + 1}_duty_fulfilled" value="否" required>否</label>
+            </div>
+          </div>
+          ${renderScale("same_decision", caseEvaluationQuestions[0][1], caseEvaluationQuestions[0][2], `case_${index + 1}`)}
+          <div class="question">
+            <label for="case_${index + 1}_fault_size">2.3 您认为在本案例中，医生张某的过错大小 *</label>
+            <div class="hint">0表示医生医生完全无过错，100表示医生完全过错。请拖动滑块以完成判断。</div>
+            <div class="slider-grid"><input name="case_${index + 1}_fault_size_number" type="number" min="0" max="100" value="50" required><input id="case_${index + 1}_fault_size" name="case_${index + 1}_fault_size" type="range" min="0" max="100" value="50" required></div>
+          </div>
+          <div class="question responsibility-question">
+            <div class="field-label">2.4 您认为在本案例中，医生、医疗机构和AI开发者的责任分配比例是多少？ *</div>
+            <div class="hint">注意：三者责任分配比例之和应为100%。请拖动滑块或在左侧方框中填写数字以完成判断。</div>
+            ${["医生", "医疗机构", "AI开发者"].map((label, idx) => {
+              const key = ["doctor", "institution", "developer"][idx];
+              const value = idx === 0 ? 34 : 33;
+              return `<label class="slider-grid">${label}<input name="case_${index + 1}_responsibility_${key}" type="number" min="0" max="100" value="${value}" required><input name="case_${index + 1}_responsibility_${key}_range" type="range" min="0" max="100" value="${value}"></label>`;
+            }).join("")}
+            <div class="total-row">当前合计：<span class="responsibility-total">100</span>%</div>
+          </div>
+          ${renderScale("confidence", caseEvaluationQuestions[1][1], caseEvaluationQuestions[1][2], `case_${index + 1}`)}
+          <div class="block warn"><span class="danger-text">请注意，点击下一页之后本页不可返回，请确认无误后再继续作答！</span></div>
+        </div>
+      `;
+    }
+
+    function renderCases() {
+      stepsHost.innerHTML = state.cases.map(renderCase).join("");
+      steps = ["intro", "profile", "instructions", ...state.cases.map((_, i) => `case_${i + 1}`), "post", "final"];
+      setupSliderPairs();
+      setupResponsiveScales();
+    }
+
+    function setupSliderPairs() {
+      document.querySelectorAll(".slider-grid").forEach(row => {
+        const number = row.querySelector("input[type=number]");
+        const range = row.querySelector("input[type=range]");
+        if (!number || !range) return;
+        const sync = source => {
+          const value = Math.max(0, Math.min(100, Number(source.value || 0)));
+          number.value = value;
+          range.value = value;
+          updateResponsibilityTotal(row.closest(".responsibility-question"));
+        };
+        number.addEventListener("input", () => sync(number));
+        range.addEventListener("input", () => sync(range));
+      });
+    }
+
+    function updateResponsibilityTotal(box) {
+      if (!box) return;
+      const sum = [...box.querySelectorAll("input[type=number]")].reduce((total, input) => total + Number(input.value || 0), 0);
+      const target = box.querySelector(".responsibility-total");
+      target.textContent = sum;
+      target.classList.toggle("danger-text", sum !== 100);
+    }
+
+    function setupResponsiveScales() {
+      document.querySelectorAll("[data-scale-value]").forEach(hidden => {
+        const name = hidden.dataset.scaleValue;
+        const radios = [...document.querySelectorAll(`[data-scale-choice="${name}"]`)];
+        const range = document.querySelector(`[data-mobile-scale="${name}"]`);
+        const output = document.querySelector(`[data-mobile-scale-output="${name}"]`);
+        const options = range ? JSON.parse(range.dataset.scaleOptions) : [];
+        function setValue(value) {
+          hidden.value = value;
+          const [score, label] = value.split(/:(.*)/s);
+          radios.forEach(radio => radio.checked = radio.value === value);
+          if (range) range.value = score;
+          if (output) output.textContent = `${score}：${label}`;
+        }
+        radios.forEach(radio => radio.addEventListener("change", () => setValue(radio.value)));
+        if (range) {
+          range.addEventListener("input", () => {
+            const score = Number(range.value);
+            setValue(`${score}:${options[score - 1]}`);
+          });
+        }
+        setValue(hidden.value);
+      });
+    }
+
+    function currentStepEl() {
+      return document.querySelector(`.step[data-step="${steps[state.step]}"]`);
+    }
+
+    function collectData() {
+      const data = {};
+      new FormData(form).forEach((value, key) => {
+        if (!key.startsWith("_") && key !== "payload_json" && key !== "payload_csv" && !key.endsWith("_choice")) data[key] = value;
+      });
+      form.querySelectorAll("input[type=radio]:checked").forEach(input => {
+        if (input.value.includes(":")) {
+          const [score, label] = input.value.split(/:(.*)/s);
+          data[input.name] = score;
+          data[`${input.name}_label`] = label || "";
+        }
+      });
+      return {
+        respondentId: state.respondentId,
+        groupCode: state.groupCode,
+        groupLabel: state.groupLabel,
+        startedAt: state.startedAt,
+        currentStep: state.step,
+        submittedAt: new Date().toISOString(),
+        data,
+        cases: state.cases
+      };
+    }
+
+    function csvEscape(value) {
+      return `"${String(value ?? "").replaceAll('"', '""')}"`;
+    }
+
+    function toCsv(payload) {
+      const profileFields = [
+        "age", "gender", "workplace", "medical_org_type", "medical_org_other", "forensic_org_type", "forensic_org_other",
+        "province", "city", "education", "specialty", "specialty_other", "professional_title", "work_years",
+        "liability_case_times", "daily_ai_frequency", "daily_ai_frequency_label", "ai_knowledge_level",
+        "ai_knowledge_level_label", "professional_ai_frequency", "professional_ai_frequency_label",
+        "attitude_ai_clinical", "attitude_ai_clinical_label", "confidence_ai_info", "confidence_ai_info_label",
+        "willingness_ai_use", "willingness_ai_use_label", "future_ai_willingness", "future_ai_willingness_label",
+        "future_ai_confidence", "future_ai_confidence_label"
+      ];
+      const caseFields = [
+        "case_no", "doctor", "ai_ability", "ai_advice", "doctor_behavior", "final_treatment",
+        "qc_doctor", "qc_treatment", "duty_fulfilled", "same_decision", "same_decision_label",
+        "fault_size", "responsibility_doctor", "responsibility_institution", "responsibility_developer",
+        "confidence", "confidence_label"
+      ];
+      const rows = [[
+        "respondent_id", "group_code", "group_label", "started_at", "submitted_at",
+        ...profileFields,
+        ...caseFields
+      ]];
+      payload.cases.forEach((item, i) => {
+        const prefix = `case_${i + 1}`;
+        const profileValues = profileFields.map(field => payload.data[field] || "");
+        const caseValues = [
+          i + 1,
+          item.doctor,
+          item.aiAbility,
+          item.aiAdvice,
+          item.behavior,
+          item.finalTreatment,
+          payload.data[`${prefix}_qc_doctor`] || "",
+          payload.data[`${prefix}_qc_treatment`] || "",
+          payload.data[`${prefix}_duty_fulfilled`] || "",
+          payload.data[`${prefix}_same_decision`] || "",
+          payload.data[`${prefix}_same_decision_label`] || "",
+          payload.data[`${prefix}_fault_size`] || "",
+          payload.data[`${prefix}_responsibility_doctor`] || "",
+          payload.data[`${prefix}_responsibility_institution`] || "",
+          payload.data[`${prefix}_responsibility_developer`] || "",
+          payload.data[`${prefix}_confidence`] || "",
+          payload.data[`${prefix}_confidence_label`] || ""
+        ];
+        rows.push([
+          payload.respondentId,
+          payload.groupCode,
+          payload.groupLabel,
+          payload.startedAt,
+          payload.submittedAt,
+          ...profileValues,
+          ...caseValues
+        ]);
+      });
+      return "\ufeff" + rows.map(row => row.map(csvEscape).join(",")).join("\n");
+    }
+
+    function excelEscape(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function csvToRows(csv) {
+      const text = csv.replace(/^\ufeff/, "");
+      const rows = [];
+      let row = [];
+      let cell = "";
+      let quoted = false;
+      for (let i = 0; i < text.length; i += 1) {
+        const char = text[i];
+        const next = text[i + 1];
+        if (quoted && char === '"' && next === '"') {
+          cell += '"';
+          i += 1;
+        } else if (char === '"') {
+          quoted = !quoted;
+        } else if (!quoted && char === ",") {
+          row.push(cell);
+          cell = "";
+        } else if (!quoted && char === "\n") {
+          row.push(cell);
+          rows.push(row);
+          row = [];
+          cell = "";
+        } else if (char !== "\r") {
+          cell += char;
+        }
+      }
+      row.push(cell);
+      rows.push(row);
+      return rows;
+    }
+
+    function toExcelHtml() {
+      const rows = csvToRows(payloadCsv.value);
+      const htmlRows = rows.map((row, rowIndex) => {
+        const tag = rowIndex === 0 ? "th" : "td";
+        return `<tr>${row.map(cell => `<${tag}>${excelEscape(cell)}</${tag}>`).join("")}</tr>`;
+      }).join("");
+      return `
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              table { border-collapse: collapse; font-family: Arial, "Microsoft YaHei", sans-serif; font-size: 12px; }
+              th, td { border: 1px solid #9fb8d8; padding: 6px 8px; mso-number-format:"\\@"; }
+              th { background: #dbeafe; color: #0c4384; font-weight: 700; }
+            </style>
+          </head>
+          <body><table>${htmlRows}</table></body>
+        </html>
+      `;
+    }
+
+    function toBase64Utf8(text) {
+      const bytes = new TextEncoder().encode(text);
+      let binary = "";
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+      }
+      return btoa(binary);
+    }
+
+    function excelAttachment() {
+      return `data:application/vnd.ms-excel;base64,${toBase64Utf8(toExcelHtml())}`;
+    }
+
+    function saveLocalBackup(reason = "") {
+      localStorage.setItem(BACKUP_KEY, JSON.stringify({
+        reason,
+        savedAt: new Date().toISOString(),
+        payload: collectData()
+      }));
+    }
+
+    async function save(status = "in_progress", qualityLog = []) {
+      if (!isConfigured()) {
+        saveLocalBackup("Supabase 尚未配置");
+        return { ok: false, error: "Supabase 尚未配置" };
+      }
+      try {
+        await rpc("save_survey_progress", {
+          p_respondent_id: state.respondentId,
+          p_current_step: state.step,
+          p_status: status,
+          p_payload: collectData(),
+          p_quality_log: qualityLog
+        });
+        localStorage.removeItem(BACKUP_KEY);
+        state.lastSaveOk = true;
+        state.lastSaveAt = new Date().toISOString();
+        state.lastSaveError = "";
+        return { ok: true };
+      } catch (error) {
+        const reason = describeError(error);
+        saveLocalBackup(reason);
+        state.lastSaveOk = false;
+        state.lastSaveError = reason;
+        return { ok: false, error: reason };
+      }
+    }
+
+    async function validateCurrent() {
+      message.textContent = "";
+      const el = currentStepEl();
+      for (const control of [...el.querySelectorAll("input, select")]) {
+        if (!control.checkValidity()) {
+          control.reportValidity();
+          return false;
+        }
+      }
+      const age = form.elements.age;
+      if (age && age.value && (!Number.isInteger(Number(age.value)) || Number(age.value) < 18 || Number(age.value) > 99)) {
+        message.textContent = "年龄必须为18-99岁之间的整数。";
+        age.focus();
+        return false;
+      }
+      for (const name of ["work_years", "liability_case_times"]) {
+        const input = form.elements[name];
+        if (input && input.value && !Number.isInteger(Number(input.value))) {
+          message.textContent = "年限和次数必须填写整数。";
+          input.focus();
+          return false;
+        }
+      }
+      const responsibility = el.querySelector(".responsibility-question");
+      if (responsibility) {
+        const sum = [...responsibility.querySelectorAll("input[type=number]")].reduce((total, input) => total + Number(input.value || 0), 0);
+        if (sum !== 100) {
+          message.textContent = "医生、医疗机构和AI开发者的责任分配比例之和必须为100%。";
+          return false;
+        }
+      }
+      const qualityLog = [];
+      for (const qc of [...el.querySelectorAll("[data-qc]")]) {
+        const checked = qc.querySelector("input:checked");
+        const correct = qc.dataset.correct;
+        if (checked && checked.value !== correct) {
+          qualityLog.push({
+            step: steps[state.step],
+            question: qc.dataset.qc,
+            answer: checked.value,
+            correct,
+            at: new Date().toISOString()
+          });
+        }
+      }
+      if (qualityLog.length) {
+        const saved = await save("quality_failed_attempt", qualityLog);
+        message.textContent = saved.ok
+          ? "案例理解题回答错误，请重新阅读本页情景内容后再作答。"
+          : `案例理解题回答错误，请重新阅读本页情景内容后再作答。本次答错记录已先保存在本机，数据库提示：${saved.error}`;
+        return false;
+      }
+      return true;
+    }
+
+    function goTo(step) {
+      state.step = Math.max(0, Math.min(step, steps.length - 1));
+      document.querySelectorAll(".step").forEach(item => item.classList.remove("active"));
+      currentStepEl().classList.add("active");
+      const pct = Math.round((state.step / (steps.length - 1)) * 100);
+      stepText.textContent = `第 ${state.step + 1} / ${steps.length} 页`;
+      stepPercent.textContent = `${pct}%`;
+      progressBar.style.width = `${pct}%`;
+      prevBtn.disabled = state.step === 0 || state.step > state.lockedUntil;
+      prevBtn.style.display = state.step <= 2 ? "inline-flex" : "none";
+      wizardActions.style.display = steps[state.step] === "final" ? "none" : "flex";
+      nextBtn.textContent = state.step === 1 ? "确认无误，下一页" : state.step === 2 ? "确认无误，下一页" : "下一步";
+      if (steps[state.step] === "final") updateSummary();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function restorePayload(payload) {
+      if (!payload || !payload.data) return;
+      Object.entries(payload.data).forEach(([name, value]) => {
+        const controls = form.elements[name];
+        if (!controls) return;
+        if (controls instanceof RadioNodeList) {
+          [...controls].forEach(input => {
+            if (input.value === value) input.checked = true;
+          });
+        } else {
+          controls.value = value;
+        }
+      });
+    }
+
+    function updateSummary() {
+      const payload = collectData();
+      payloadJson.value = JSON.stringify(payload, null, 2);
+      payloadCsv.value = toCsv(payload);
+      const dbStatus = state.lastSaveOk
+        ? `已保存至数据库，最近保存时间：${state.lastSaveAt}`
+        : `尚未确认保存至数据库，本机已有暂存备份${state.lastSaveError ? `；最近错误：${state.lastSaveError}` : ""}`;
+      summaryTable.innerHTML = `
+        <tr><th>受访者ID</th><td>${state.respondentId}</td></tr>
+        <tr><th>分组</th><td>已记录</td></tr>
+        <tr><th>案例数量</th><td>${state.cases.length}</td></tr>
+        <tr><th>数据状态</th><td>${dbStatus}</td></tr>
+      `;
+    }
+
+    async function sendEmailBackup() {
+      updateSummary();
+      const saved = await save("completed");
+      if (!saved.ok) {
+        message.textContent = `数据库暂未确认保存，已继续准备邮件备份。数据库提示：${saved.error}`;
+      }
+      if (!emailJsConfigured()) {
+        message.textContent = "EmailJS 尚未配置，无法发送邮件备份。请先填写 EMAILJS_PUBLIC_KEY、EMAILJS_SERVICE_ID 和 EMAILJS_TEMPLATE_ID。数据库保存不受影响。";
+        return;
+      }
+      if (!window.emailjs) {
+        message.textContent = "EmailJS 脚本未加载成功，请检查网络或稍后重试。数据库保存不受影响。";
+        return;
+      }
+      try {
+        emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          to_email: EMAIL_TO,
+          subject: "AI辅助诊疗情景实验答题记录",
+          respondent_id: state.respondentId,
+          payload_json: payloadJson.value,
+          payload_csv: payloadCsv.value,
+          payload_excel_csv: payloadCsv.value,
+          payload_excel_html: toExcelHtml(),
+          excel_filename: `${state.respondentId}.xls`,
+          excel_file: excelAttachment()
+        });
+        message.textContent = "邮件备份已发送。";
+      } catch (error) {
+        message.textContent = `邮件备份发送失败：${describeError(error)}。数据库保存不受影响。`;
+      }
+    }
+
+    function downloadJson() {
+      updateSummary();
+      const blob = new Blob([payloadJson.value], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${state.respondentId}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadCsv() {
+      updateSummary();
+      const blob = new Blob([payloadCsv.value], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${state.respondentId}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function downloadExcel() {
+      updateSummary();
+      const blob = new Blob([toExcelHtml()], { type: "application/vnd.ms-excel;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${state.respondentId}.xls`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    async function initBackend() {
+      if (!isConfigured()) {
+        document.getElementById("configWarning").style.display = "block";
+        state.groupCode = "control";
+        state.groupLabel = groups.control;
+        state.cases = shuffle(groupCases.control);
+        return;
+      }
+      const result = await rpc("assign_or_restore_survey", {
+        p_respondent_id: state.respondentId,
+        p_user_agent: navigator.userAgent
+      });
+      const row = Array.isArray(result) ? result[0] : result;
+      state.groupCode = row.group_code;
+      state.groupLabel = row.group_label;
+      state.cases = row.cases_json || shuffle(groupCases[state.groupCode]);
+      state.step = Math.min(Number(row.current_step || 0), 3 + state.cases.length);
+      state.lockedUntil = state.step;
+      state.savedPayload = row.payload_json;
+    }
+
+    nextBtn.addEventListener("click", async () => {
+      try {
+        if (!(await validateCurrent())) return;
+        message.textContent = "正在保存，请稍等...";
+        state.lockedUntil = Math.max(state.lockedUntil, state.step + 1);
+        state.step += 1;
+        const status = steps[state.step] === "final" ? "completed" : "in_progress";
+        const saved = await save(status);
+        goTo(state.step);
+        if (!saved.ok) {
+          message.textContent = `本页答案已在本机暂存，但数据库同步失败：${saved.error}。您可以继续作答，系统会在后续页面继续尝试保存。`;
+        } else {
+          message.textContent = "本页答案已保存。";
+        }
+      } catch (error) {
+        saveLocalBackup(describeError(error));
+        message.textContent = `本页答案已在本机暂存，但数据库同步失败：${describeError(error)}。您可以继续作答。`;
+        console.error(error);
+      }
+    });
+
+    prevBtn.addEventListener("click", () => {
+      if (state.step <= state.lockedUntil && state.step <= 2) goTo(state.step - 1);
+    });
+
+    document.getElementById("downloadBtn").addEventListener("click", downloadJson);
+    document.getElementById("downloadCsvBtn").addEventListener("click", downloadCsv);
+    document.getElementById("downloadExcelBtn").addEventListener("click", downloadExcel);
+    document.getElementById("emailBtn").addEventListener("click", sendEmailBackup);
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      await sendEmailBackup();
+    });
+
+    (async function boot() {
+      try {
+        setupProvinceCity();
+        setupConditionalOrg();
+        setupScales();
+        await initBackend();
+        renderInstructions();
+        renderCases();
+        setupResponsiveScales();
+        restorePayload(state.savedPayload);
+        goTo(state.step);
+      } catch (error) {
+        message.textContent = "实验页面初始化失败，请稍后刷新重试。";
+        console.error(error);
+      }
+    })();
+  </script>
+</body>
+</html>
