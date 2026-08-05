@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>专家视角下AI辅助诊疗情景特征对医生过失判断的影响研究</title>
+  <title>专家视角下AI辅助诊疗对医生潜在法律责任的影响研究</title>
   <style>
     :root {
       --bg: #eef5ff;
@@ -155,6 +155,8 @@
 
     .intro-section.soft {
       background: #fff;
+      border-color: #bdd6f7;
+      border-left: 5px solid var(--blue);
     }
 
     .intro-section-title {
@@ -198,7 +200,7 @@
       padding: 18px 20px;
       background: #fff;
       border: 1px solid var(--line);
-      border-left: 4px solid var(--green-line);
+      border-left: 4px solid var(--blue);
       border-radius: 8px;
     }
 
@@ -210,11 +212,16 @@
     .intro-consent {
       margin: 0;
       padding: 14px 16px;
-      color: var(--green-dark);
-      background: var(--green-soft);
-      border: 1px solid var(--green-line);
+      color: var(--blue-dark);
+      background: var(--blue-soft);
+      border: 1px solid #bdd6f7;
       border-radius: 8px;
       font-weight: 900;
+    }
+
+    .intro-resume-note {
+      display: block;
+      margin-top: 6px;
     }
 
     .final-thanks {
@@ -260,6 +267,13 @@
       background: var(--yellow);
       border-color: #ead891;
       color: #5a4514;
+    }
+
+    .block.config-warning,
+    .block.save-notice {
+      background: var(--blue-soft);
+      border-color: #bdd6f7;
+      color: var(--blue-dark);
     }
 
     .accent {
@@ -493,6 +507,10 @@
       margin-top: 26px;
       padding-top: 18px;
       border-top: 1px solid var(--line);
+    }
+
+    .step[data-step="final"] .actions {
+      justify-content: flex-end;
     }
 
     .button {
@@ -736,7 +754,7 @@
   <div class="shell">
     <header>
       <div>
-        <h1>专家视角下AI辅助诊疗情景特征<br>对医生过失判断的影响研究</h1>
+        <h1>专家视角下AI辅助诊疗<br>对医生潜在法律责任的影响研究</h1>
         <p class="subtitle">本研究采用随机对照情景实验设计。系统将保存您的答题进度，同一设备、同一浏览器可继续作答。</p>
       </div>
       <div class="status-card" aria-live="polite">
@@ -749,7 +767,7 @@
       <div class="block warn config-warning" id="configWarning">
         数据库尚未配置。请在页面代码顶部填写 Supabase 项目 URL 和 anon key 后再正式发布。
       </div>
-      <div class="block warn">
+      <div class="block save-notice">
         如页面短暂卡顿或按钮响应较慢，请稍等几秒，系统正在保存进度。
       </div>
 
@@ -769,7 +787,7 @@
 
           <section class="intro-section">
             <h3 class="intro-section-title">研究目标</h3>
-            <p>评价不同情景下医生接受/拒绝AI决策可能面临的法律风险，为未来指导医生安全使用AI提供科学依据。</p>
+            <p>评价不同情景下医生接受/拒绝AI决策可能面临的法律风险，<span class="strong">为未来指导医生安全使用AI提供科学依据</span>。</p>
           </section>
 
           <section class="intro-section soft">
@@ -804,7 +822,7 @@
             </section>
           </div>
 
-          <p class="intro-consent">若您已阅读确认上述信息并自愿参与，请点击“下一步”，感谢您的支持与配合。</p>
+          <p class="intro-consent">若您已阅读确认上述信息并自愿参与，请点击“下一步”，感谢您的支持与配合。<span class="intro-resume-note">请注意，中途退出后，务必使用同一设备，同一链接进入，否则无法进行断点续答。</span></p>
         </div>
 
         <div class="step" data-step="profile">
@@ -930,15 +948,12 @@
         <div class="step" data-step="final">
           <h2>提交完成</h2>
           <div class="block white">
-            <p>您的答题记录已保存。请点击发送邮件，等待发送成功提示后，关闭页面即可。</p>
+            <p>您的答题记录已保存。请点击“确认提交”，等待提交成功提示后，关闭页面即可。</p>
             <p class="final-thanks">感谢您的参与！</p>
           </div>
           <table class="summary" id="summaryTable"></table>
           <div class="actions">
-            <button type="button" class="button" id="downloadBtn">下载JSON备份</button>
-            <button type="button" class="button" id="downloadCsvBtn">下载Excel CSV</button>
-            <button type="button" class="button" id="downloadExcelBtn">下载Excel表格</button>
-            <button type="button" class="button primary" id="emailBtn">发送邮件</button>
+            <button type="button" class="button primary" id="emailBtn">确认提交</button>
           </div>
         </div>
       </form>
@@ -1787,6 +1802,7 @@
     }
 
     async function sendEmailBackup() {
+      message.textContent = "结果提交中，请稍后";
       updateSummary();
       const saved = await save("completed");
       if (!saved.ok) {
@@ -1813,7 +1829,7 @@
           excel_filename: `${state.respondentId}.xls`,
           excel_file: excelAttachment()
         });
-        message.textContent = "邮件备份已发送。";
+        message.textContent = "已提交，感谢您的参与。";
       } catch (error) {
         message.textContent = `邮件备份发送失败：${describeError(error)}。数据库保存不受影响。`;
       }
@@ -1910,9 +1926,12 @@
       }
     });
 
-    document.getElementById("downloadBtn").addEventListener("click", downloadJson);
-    document.getElementById("downloadCsvBtn").addEventListener("click", downloadCsv);
-    document.getElementById("downloadExcelBtn").addEventListener("click", downloadExcel);
+    const downloadBtn = document.getElementById("downloadBtn");
+    const downloadCsvBtn = document.getElementById("downloadCsvBtn");
+    const downloadExcelBtn = document.getElementById("downloadExcelBtn");
+    if (downloadBtn) downloadBtn.addEventListener("click", downloadJson);
+    if (downloadCsvBtn) downloadCsvBtn.addEventListener("click", downloadCsv);
+    if (downloadExcelBtn) downloadExcelBtn.addEventListener("click", downloadExcel);
     document.getElementById("emailBtn").addEventListener("click", sendEmailBackup);
     form.addEventListener("submit", async event => {
       event.preventDefault();
