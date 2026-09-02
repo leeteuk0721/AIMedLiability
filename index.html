@@ -490,6 +490,20 @@
       align-items: center;
     }
 
+    .other-responsibility {
+      display: none;
+      gap: 12px;
+      margin-top: 10px;
+      padding: 12px;
+      background: #fff;
+      border: 1px dashed #9fb8d8;
+      border-radius: 8px;
+    }
+
+    .other-responsibility.active {
+      display: grid;
+    }
+
     input[type="range"] {
       width: 100%;
       accent-color: var(--blue);
@@ -1031,7 +1045,7 @@
     ];
 
     const caseEvaluationQuestions = [
-      ["same_decision", "2.2 您认为一个理性的医生，在相同的条件下，多大程度上会和医生张某一样做出同样的决策?", ["绝对不会", "大概率不会", "不会", "不一定", "会", "大概率会", "绝对会"]],
+      ["same_decision", "2.2 您认为一个理性的医生，在相同的条件下，多大程度上会和医生张某一样做出同样的决策?", ["绝对不会", "不会", "大概率不会", "不一定", "大概率会", "会", "绝对会"]],
       ["confidence", "2.5 您对自己回答上述问题的自信程度?", ["非常没自信", "比较没自信", "没自信", "一般", "有自信", "比较有自信", "非常有自信"]]
     ];
 
@@ -1042,8 +1056,8 @@
 
     const background = [
       '医生张某接诊了一位<span class="strong">严重细菌感染且伴有全身炎症反应</span>的患者李某。根据<span class="strong">临床指南</span>，需要立即进行<span class="strong">经验性抗生素治疗</span>，目前有两种治疗方案可供选择。',
-      '• 常规治疗方案：临床最常用的广谱抗生素组合。该方案对<span class="strong">大多数</span>此类感染患者效果最佳，但对<span class="strong">少数</span>携带特殊耐药菌的患者效果较差。',
-      '• 非常规治疗方案：特定耐药菌的限制级抗生素组合。该方案对<span class="strong">少数</span>携带特定耐药菌感染的患者效果最佳，但对<span class="strong">大多数</span>患者效果较差。'
+      '• 常规治疗方案：临床常用的抗生素治疗方案。该方案对<span class="strong">大多数常规细菌感染患者</span>效果佳，但对<span class="strong">少数特殊细菌感染的患者</span>效果较差。',
+      '• 非常规治疗方案：特殊细菌感染的抗生素治疗方案。该方案对<span class="strong">少数特殊细菌感染的患者</span>效果佳，但对<span class="strong">大多数普通细菌感染患者</span>效果较差。'
     ];
 
     const groupCases = {
@@ -1318,7 +1332,7 @@
           </div>
           <div class="case-section">
             <h3>[案例分析]</h3>
-            <p>在此情况下，患者李某对医生张某提起了诉讼，认为其存在医疗事故。在前期沟通中，双方一致同意<span class="strong">张某的治疗方案导致了患者李某病情恶化，是其人身损害的主要原因</span>。</p>
+            <p>在此情况下，患者李某对医生张某提起了诉讼，认为其存在医疗过错。在前期沟通中，双方一致同意<span class="strong">张某的治疗方案导致了患者李某病情恶化，是其人身损害的主要原因</span>。</p>
             <p>然而，双方争论的焦点是：<span class="focus-claim">医生张某是否存在过错，是否尽到了作为医生的注意义务？</span></p>
             <p>在此背景下，法院邀请您对上述案例中医生张某<span class="focus-claim">是否存在过错</span>进行评价。</p>
           </div>
@@ -1353,12 +1367,23 @@
             <div class="slider-grid"><input id="case_${index + 1}_fault_size" name="case_${index + 1}_fault_size" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></div>
           </div>
           <div class="question responsibility-question">
-            <div class="field-label">2.4 您认为在本案例中，医生、医疗机构和AI开发者的责任分配比例是多少？ *</div>
-            <div class="hint">注意：三者责任分配比例之和应为100%。请拖动滑块或在方框中填写数字以完成判断。</div>
-            ${["医生", "医疗机构", "AI开发者"].map((label, idx) => {
-              const key = ["doctor", "institution", "developer"][idx];
+            <div class="field-label">2.4 您认为在本案例中，医生、医疗机构、AI开发者的责任分配比例是多少？（若您认为应有其他责任方，请填写其他项）。 *</div>
+            <div class="hint">请拖动滑块或在方框中填写数字以完成判断。<br>若有其他项，请填写责任方名称，例如患者、监管方等。请注意各方责任分配比之和仍应为100%，例如您认为A方承担50%，B方承担20%，C方承担20%，其他方承担10%，则填写50、20、20、10。</div>
+            ${[
+              ["医生", "doctor"],
+              ["医疗机构", "institution"],
+              ["AI开发者", "developer"]
+            ].map(([label, key]) => {
               return `<label class="slider-grid">${label}<input name="case_${index + 1}_responsibility_${key}" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></label>`;
             }).join("")}
+            <label class="choice"><input type="checkbox" name="case_${index + 1}_responsibility_has_other" value="是" data-other-toggle="case_${index + 1}"> 其他项</label>
+            <div class="other-responsibility" data-other-box="case_${index + 1}">
+              <div class="field">
+                <label for="case_${index + 1}_responsibility_other_name">其他责任方名称 *</label>
+                <input id="case_${index + 1}_responsibility_other_name" name="case_${index + 1}_responsibility_other_name" type="text" placeholder="例如患者、监管方等" disabled>
+              </div>
+              <label class="slider-grid">其他方比例<input name="case_${index + 1}_responsibility_other" type="number" min="0" max="100" placeholder="0-100" disabled><input type="range" min="0" max="100" value="0" disabled></label>
+            </div>
             <div class="total-row">当前合计：<span class="responsibility-total danger-text">0</span>%</div>
           </div>
           ${renderScale("confidence", caseEvaluationQuestions[1][1], caseEvaluationQuestions[1][2], `case_${index + 1}`)}
@@ -1371,6 +1396,7 @@
       stepsHost.innerHTML = state.cases.map(renderCase).join("");
       steps = ["intro", "profile", "instructions", ...state.cases.map((_, i) => `case_${i + 1}`), "post", "final"];
       setupSliderPairs();
+      setupResponsibilityOther();
       setupResponsiveScales();
     }
 
@@ -1395,9 +1421,37 @@
       });
     }
 
+    function setupResponsibilityOther() {
+      document.querySelectorAll("[data-other-toggle]").forEach(toggle => {
+        const key = toggle.dataset.otherToggle;
+        const box = document.querySelector(`[data-other-box="${key}"]`);
+        if (!box) return;
+        const nameInput = box.querySelector(`input[name="${key}_responsibility_other_name"]`);
+        const number = box.querySelector(`input[name="${key}_responsibility_other"]`);
+        const range = box.querySelector(`input[name="${key}_responsibility_other"] + input[type="range"]`);
+        function update() {
+          const active = toggle.checked;
+          box.classList.toggle("active", active);
+          [nameInput, number, range].forEach(input => {
+            input.disabled = !active;
+          });
+          nameInput.required = active;
+          number.required = active;
+          if (!active) {
+            nameInput.value = "";
+            number.value = "";
+            range.value = 0;
+          }
+          updateResponsibilityTotal(toggle.closest(".responsibility-question"));
+        }
+        toggle.addEventListener("change", update);
+        update();
+      });
+    }
+
     function updateResponsibilityTotal(box) {
       if (!box) return;
-      const sum = [...box.querySelectorAll("input[type=number]")].reduce((total, input) => total + Number(input.value || 0), 0);
+      const sum = [...box.querySelectorAll("input[type=number]:not(:disabled)")].reduce((total, input) => total + Number(input.value || 0), 0);
       const target = box.querySelector(".responsibility-total");
       target.textContent = sum;
       target.classList.toggle("danger-text", sum !== 100);
@@ -1529,7 +1583,7 @@
       const caseFields = [
         "case_no", "case_code", "case_duration", "case_duration_seconds", "doctor", "ai_ability", "ai_advice", "doctor_behavior", "final_treatment",
         "qc_doctor", "qc_treatment", "duty_fulfilled", "same_decision", "same_decision_label",
-        "qc_failed", "fault_size", "responsibility_doctor", "responsibility_institution", "responsibility_developer",
+        "qc_failed", "fault_size", "responsibility_doctor", "responsibility_institution", "responsibility_developer", "responsibility_has_other", "responsibility_other_name", "responsibility_other",
         "confidence", "confidence_label"
       ];
       const valueOf = key => payload.data[key] ?? "";
@@ -1562,6 +1616,9 @@
           valueOf(`${prefix}_responsibility_doctor`),
           valueOf(`${prefix}_responsibility_institution`),
           valueOf(`${prefix}_responsibility_developer`),
+          valueOf(`${prefix}_responsibility_has_other`),
+          valueOf(`${prefix}_responsibility_other_name`),
+          valueOf(`${prefix}_responsibility_other`),
           valueOf(`${prefix}_confidence`),
           valueOf(`${prefix}_confidence_label`)
         ];
@@ -1724,9 +1781,16 @@
       }
       const responsibility = el.querySelector(".responsibility-question");
       if (responsibility) {
-        const sum = [...responsibility.querySelectorAll("input[type=number]")].reduce((total, input) => total + Number(input.value || 0), 0);
+        const hasOther = responsibility.querySelector("[data-other-toggle]")?.checked;
+        const otherName = responsibility.querySelector('input[name$="_responsibility_other_name"]');
+        if (hasOther && !otherName.value.trim()) {
+          message.textContent = "您选择了其他项，请填写其他责任方名称。";
+          otherName.focus();
+          return false;
+        }
+        const sum = [...responsibility.querySelectorAll("input[type=number]:not(:disabled)")].reduce((total, input) => total + Number(input.value || 0), 0);
         if (sum !== 100) {
-          message.textContent = "医生、医疗机构和AI开发者的责任分配比例之和必须为100%。";
+          message.textContent = "医生、医疗机构、AI开发者及其他责任方的责任分配比例之和必须为100%。";
           return false;
         }
       }
