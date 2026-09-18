@@ -908,7 +908,7 @@
                 <option value="影像">影像</option>
                 <option value="病理">病理</option>
                 <option value="法医">法医</option>
-                <option value="传染病/感染科">传染病/感染科</option>
+                <option value="感染/传染病科">感染/传染病科</option>
                 <option value="其他">其他，请注明</option>
               </select>
               <div class="choices desktop-specialty">
@@ -920,7 +920,7 @@
                 <label class="choice"><input type="radio" name="specialty" value="影像" required>影像</label>
                 <label class="choice"><input type="radio" name="specialty" value="病理" required>病理</label>
                 <label class="choice"><input type="radio" name="specialty" value="法医" required>法医</label>
-                <label class="choice"><input type="radio" name="specialty" value="传染病/感染科" required>传染病/感染科</label>
+                <label class="choice"><input type="radio" name="specialty" value="感染/传染病科" required>感染/传染病科</label>
                 <label class="choice"><input type="radio" name="specialty" value="其他" required>其他，请注明</label>
               </div>
               <input name="specialty_other" type="text" placeholder="如选择其他，请注明">
@@ -962,12 +962,12 @@
         <div class="step" data-step="final">
           <h2>提交完成</h2>
           <div class="block white">
-            <p>您的答题记录已保存。请点击“确认提交”，等待提交成功提示后，关闭页面即可。</p>
+            <p>请确认所有答案无误后，点击下方“提交并发送邮件”按钮。系统将同步保存至数据库并发送邮件备份。</p>
             <p class="final-thanks">感谢您的参与！</p>
           </div>
           <table class="summary" id="summaryTable"></table>
           <div class="actions">
-            <button type="button" class="button primary" id="emailBtn">确认提交</button>
+            <button type="button" class="button primary" id="emailBtn">提交并发送邮件</button>
           </div>
         </div>
       </form>
@@ -991,12 +991,13 @@
     const STORAGE_KEY = "ai_fault_experiment_respondent_id";
     const BACKUP_KEY = "ai_fault_experiment_pending_backup";
 
+    // These labels are masked study codes. They are never shown in the questionnaire.
     const groups = {
-      control: "对照组：不使用 AI",
-      a: "干预组A组：推荐常规建议的通用级AI",
-      b: "干预组B组：推荐不常规的通用级AI",
-      c: "干预组C块：推荐常规建议的专业级AI",
-      d: "干预组D块：推荐不常规的专业级AI"
+      control: "A",
+      a: "B",
+      b: "C",
+      c: "D",
+      d: "E"
     };
 
     const provinceCities = {
@@ -1354,7 +1355,7 @@
           <h3>2. 结局评价</h3>
           <div class="question">
             <div class="field-label">2.1 您认为，医生张某在上述案例中是否履行了作为医生的注意义务? *</div>
-            <div class="hint">注意义务：指医生在诊疗活动中，医生诊疗决策应符合"一个理性的医生在面临相同情境时会作出类似诊疗行为"的要求，应尽到与当时医疗水平相当的诊疗义务。违反注意义务代表医生可能存在医疗过错。</div>
+            <div class="hint">注：注意义务是指医生在诊疗活动中，诊疗决策应符合“一个理性的医生在面临相同情境时会作出类似诊疗行为”的要求，并应尽到与当时医疗水平相当的诊疗义务。违反注意义务可能构成医疗过错。</div>
             <div class="choices">
               <label class="choice"><input type="radio" name="case_${index + 1}_duty_fulfilled" value="是（医生无过错）" required>是（医生无过错）</label>
               <label class="choice"><input type="radio" name="case_${index + 1}_duty_fulfilled" value="否（医生有过错）" required>否（医生有过错）</label>
@@ -1953,6 +1954,8 @@
       state.step = Math.min(Number(row.current_step || 0), 3 + state.cases.length);
       state.lockedUntil = state.step;
       state.savedPayload = row.payload_json;
+      state.lastSaveOk = row.status === "completed" || Boolean(state.savedPayload);
+      state.lastSaveAt = row.status === "completed" ? "已由平台记录" : "";
       if (state.savedPayload?.startedAt) {
         state.startedAt = state.savedPayload.startedAt;
         state.surveyStartedMs = Date.parse(state.startedAt) || state.surveyStartedMs;
