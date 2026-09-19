@@ -1176,6 +1176,10 @@
       return copy;
     }
 
+    function randomGroupCode() {
+      return shuffle(Object.keys(groupCases))[0];
+    }
+
     function sameCase(a, b) {
       return ["doctor", "aiAbility", "aiAdvice", "behavior", "finalTreatment"].every(key => a?.[key] === b?.[key]);
     }
@@ -1936,9 +1940,9 @@
     async function initBackend() {
       if (!isConfigured()) {
         document.getElementById("configWarning").style.display = "block";
-        state.groupCode = "control";
-        state.groupLabel = groups.control;
-        state.cases = shuffle(codeCases("control", groupCases.control));
+        state.groupCode = randomGroupCode();
+        state.groupLabel = groups[state.groupCode];
+        state.cases = shuffle(codeCases(state.groupCode, groupCases[state.groupCode]));
         state.step = 0;
         state.lockedUntil = 0;
         return;
