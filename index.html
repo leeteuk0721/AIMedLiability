@@ -933,12 +933,22 @@
                 <label class="choice"><input type="radio" name="professional_title" value="正高级" required>正高级</label>
               </div>
             </div>
+            <div class="field full">
+              <span class="field-label">9. 您参与本次试验的方式 *</span>
+              <div class="choices">
+                <label class="choice"><input type="radio" name="participation_method" value="组织培训时统一通知填写" required>组织培训时统一通知填写</label>
+                <label class="choice"><input type="radio" name="participation_method" value="医院医务处或机构相关部门通知填写" required>医院医务处或机构相关部门通知填写</label>
+                <label class="choice"><input type="radio" name="participation_method" value="医疗鉴定会后通知填写" required>医疗鉴定会后通知填写</label>
+                <label class="choice"><input type="radio" name="participation_method" value="其他" required>其他</label>
+              </div>
+              <input name="participation_method_other" type="text" placeholder="如选择其他，请注明">
+            </div>
             <div class="field">
-              <label for="workYears">9. 您从事医疗鉴定相关工作的年限：____年 *</label>
+              <label for="workYears">10. 您从事医疗鉴定相关工作的年限：____年 *</label>
               <input id="workYears" name="work_years" type="number" min="0" step="1" required>
             </div>
             <div class="field">
-              <label for="caseTimes">10. 您近3年参与医疗损害责任认定的次数：____次 *</label>
+              <label for="caseTimes">11. 您近3年参与医疗损害责任认定的次数：____次 *</label>
               <input id="caseTimes" name="liability_case_times" type="number" min="0" step="1" required>
             </div>
           </div>
@@ -1037,12 +1047,12 @@
 
     const fivePoint = ["从未", "偶尔", "有时", "经常", "总是"];
     const profileScaleQuestions = [
-      ["daily_ai_frequency", "11. 您在日常生活中使用AI的频率", fivePoint],
-      ["ai_knowledge_level", "12. 您自评个人的AI知识和技能水平", ["非常差", "差", "中", "良", "优"]],
-      ["professional_ai_frequency", "13. 您在临床工作/专业工作中使用AI的频率", fivePoint],
-      ["attitude_ai_clinical", "14. 您对于医生在临床决策过程中使用AI进行辅助的态度", ["完全不支持", "不支持", "中立", "支持", "非常支持"]],
-      ["confidence_ai_info", "15. 您对在临床决策过程中AI辅助信息的信心", ["完全没信心", "比较没信心", "没信心", "一般", "有信心", "比较有信心", "完全有信心"]],
-      ["willingness_ai_use", "16. 您对在临床决策过程中使用AI辅助的意愿", ["完全不愿意", "不愿意", "有点不愿意", "中立", "有点愿意", "愿意", "完全愿意"]]
+      ["daily_ai_frequency", "12. 您在日常生活中使用AI的频率", fivePoint],
+      ["ai_knowledge_level", "13. 您自评个人的AI知识和技能水平", ["非常差", "差", "中", "良", "优"]],
+      ["professional_ai_frequency", "14. 您在临床工作/专业工作中使用AI的频率", fivePoint],
+      ["attitude_ai_clinical", "15. 您对于医生在临床决策过程中使用AI进行辅助的态度", ["完全不支持", "不支持", "中立", "支持", "非常支持"]],
+      ["confidence_ai_info", "16. 您对在临床决策过程中AI辅助信息的信心", ["完全没信心", "比较没信心", "没信心", "一般", "有信心", "比较有信心", "完全有信心"]],
+      ["willingness_ai_use", "17. 您对在临床决策过程中使用AI辅助的意愿", ["完全不愿意", "不愿意", "有点不愿意", "中立", "有点愿意", "愿意", "完全愿意"]]
     ];
 
     const caseEvaluationQuestions = [
@@ -1262,7 +1272,8 @@
       const pairs = [
         ["medical_org_type", "medical_org_other"],
         ["forensic_org_type", "forensic_org_other"],
-        ["specialty", "specialty_other"]
+        ["specialty", "specialty_other"],
+        ["participation_method", "participation_method_other"]
       ];
       function update() {
         pairs.forEach(([choiceName, inputName]) => {
@@ -1578,7 +1589,7 @@
     function toCsv(payload) {
       const profileFields = [
         "age", "gender", "workplace", "medical_org_type", "medical_org_other", "forensic_org_type", "forensic_org_other",
-        "province", "city", "education", "specialty", "specialty_other", "professional_title", "work_years",
+        "province", "city", "education", "specialty", "specialty_other", "professional_title", "participation_method", "participation_method_other", "work_years",
         "liability_case_times", "daily_ai_frequency", "daily_ai_frequency_label", "ai_knowledge_level",
         "ai_knowledge_level_label", "professional_ai_frequency", "professional_ai_frequency_label",
         "attitude_ai_clinical", "attitude_ai_clinical_label", "confidence_ai_info", "confidence_ai_info_label",
