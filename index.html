@@ -491,17 +491,13 @@
     }
 
     .other-responsibility {
-      display: none;
+      display: grid;
       gap: 12px;
       margin-top: 10px;
       padding: 12px;
       background: #fff;
       border: 1px dashed #9fb8d8;
       border-radius: 8px;
-    }
-
-    .other-responsibility.active {
-      display: grid;
     }
 
     input[type="range"] {
@@ -521,10 +517,6 @@
       margin-top: 26px;
       padding-top: 18px;
       border-top: 1px solid var(--line);
-    }
-
-    .step[data-step="final"] .actions {
-      justify-content: flex-end;
     }
 
     .button {
@@ -964,20 +956,16 @@
         <div id="caseSteps"></div>
 
         <div class="step" data-step="post">
-          <h2>第三部分：案例结束后AI使用意愿评价</h2>
-          <div id="postScales"></div>
-          <p class="block white">问卷填写结束，感谢您对本项目的支持！</p>
-        </div>
-
-        <div class="step" data-step="final">
-          <h2>提交完成</h2>
-          <div class="block white">
-            <p>请确认所有答案无误后，点击下方“提交并发送邮件”按钮。系统将同步保存至数据库并发送邮件备份。</p>
-            <p class="final-thanks">感谢您的参与！</p>
+          <div id="postQuestions">
+            <h2>第三部分：案例结束后AI使用意愿评价</h2>
+            <div id="postScales"></div>
+            <div class="actions">
+              <button type="button" class="button primary" id="emailBtn">提交</button>
+            </div>
           </div>
-          <table class="summary" id="summaryTable"></table>
-          <div class="actions">
-            <button type="button" class="button primary" id="emailBtn">提交并发送邮件</button>
+          <div id="completionNotice" hidden>
+            <h2>提交完成</h2>
+            <p class="final-thanks">感谢您的参与。</p>
           </div>
         </div>
       </form>
@@ -1122,6 +1110,9 @@
       stepDurationsMs: {},
       qualityFailures: [],
       savedPayload: null,
+      emailSent: false,
+      completed: false,
+      submitting: false,
       lastSaveOk: false,
       lastSaveAt: "",
       lastSaveError: ""
@@ -1140,9 +1131,9 @@
     const progressBar = document.getElementById("progressBar");
     const payloadJson = document.getElementById("payloadJson");
     const payloadCsv = document.getElementById("payloadCsv");
-    const summaryTable = document.getElementById("summaryTable");
+    const submitBtn = document.getElementById("emailBtn");
 
-    let steps = ["intro", "profile", "instructions", "post", "final"];
+    let steps = ["intro", "profile", "instructions", "post"];
 
     function isConfigured() {
       return !SUPABASE_URL.includes("YOUR-PROJECT-REF") && !SUPABASE_ANON_KEY.includes("YOUR-SUPABASE");
@@ -1383,8 +1374,8 @@
             <div class="slider-grid"><input id="case_${index + 1}_fault_size" name="case_${index + 1}_fault_size" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></div>
           </div>
           <div class="question responsibility-question">
-            <div class="field-label">2.4 您认为在本案例中，医生、医疗机构、AI开发者的责任分配比例是多少？（若您认为应有其他责任方，请填写其他项）。 *</div>
-            <div class="hint">请拖动滑块或在方框中填写数字以完成判断。<br>若有其他项，请填写责任方名称，例如患者、监管方等。请注意各方责任分配比之和仍应为100%，例如您认为A方承担50%，B方承担20%，C方承担20%，其他方承担10%，则填写50、20、20、10。</div>
+            <div class="field-label">2.4 您认为在本案例中，医生、医疗机构、AI开发者及其他因素的责任分配比例是多少？ *</div>
+            <div class="hint">请拖动滑块或在方框中填写数字以完成判断。<br>其他因素请填写名称，例如患者因素、疾病因素等；若没有其他因素，请填写“无”并将比例设为0%。各项比例之和必须为100%，例如50%、20%、20%、10%。</div>
             ${[
               ["医生", "doctor"],
               ["医疗机构", "institution"],
@@ -1392,13 +1383,12 @@
             ].map(([label, key]) => {
               return `<label class="slider-grid">${label}<input name="case_${index + 1}_responsibility_${key}" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></label>`;
             }).join("")}
-            <label class="choice"><input type="checkbox" name="case_${index + 1}_responsibility_has_other" value="是" data-other-toggle="case_${index + 1}"> 其他项</label>
-            <div class="other-responsibility" data-other-box="case_${index + 1}">
+            <div class="other-responsibility">
               <div class="field">
-                <label for="case_${index + 1}_responsibility_other_name">其他责任方名称 *</label>
-                <input id="case_${index + 1}_responsibility_other_name" name="case_${index + 1}_responsibility_other_name" type="text" placeholder="例如患者、监管方等" disabled>
+                <label for="case_${index + 1}_responsibility_other_name">其他因素名称 *</label>
+                <input id="case_${index + 1}_responsibility_other_name" name="case_${index + 1}_responsibility_other_name" type="text" placeholder="例如患者因素、疾病因素；没有则填无" required>
               </div>
-              <label class="slider-grid">其他方比例<input name="case_${index + 1}_responsibility_other" type="number" min="0" max="100" placeholder="0-100" disabled><input type="range" min="0" max="100" value="0" disabled></label>
+              <label class="slider-grid">其他因素比例<input name="case_${index + 1}_responsibility_other" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></label>
             </div>
             <div class="total-row">当前合计：<span class="responsibility-total danger-text">0</span>%</div>
           </div>
@@ -1410,9 +1400,8 @@
 
     function renderCases() {
       stepsHost.innerHTML = state.cases.map(renderCase).join("");
-      steps = ["intro", "profile", "instructions", ...state.cases.map((_, i) => `case_${i + 1}`), "post", "final"];
+      steps = ["intro", "profile", "instructions", ...state.cases.map((_, i) => `case_${i + 1}`), "post"];
       setupSliderPairs();
-      setupResponsibilityOther();
       setupResponsiveScales();
     }
 
@@ -1434,34 +1423,6 @@
         };
         number.addEventListener("input", () => sync(number));
         range.addEventListener("input", () => sync(range));
-      });
-    }
-
-    function setupResponsibilityOther() {
-      document.querySelectorAll("[data-other-toggle]").forEach(toggle => {
-        const key = toggle.dataset.otherToggle;
-        const box = document.querySelector(`[data-other-box="${key}"]`);
-        if (!box) return;
-        const nameInput = box.querySelector(`input[name="${key}_responsibility_other_name"]`);
-        const number = box.querySelector(`input[name="${key}_responsibility_other"]`);
-        const range = box.querySelector(`input[name="${key}_responsibility_other"] + input[type="range"]`);
-        function update() {
-          const active = toggle.checked;
-          box.classList.toggle("active", active);
-          [nameInput, number, range].forEach(input => {
-            input.disabled = !active;
-          });
-          nameInput.required = active;
-          number.required = active;
-          if (!active) {
-            nameInput.value = "";
-            number.value = "";
-            range.value = 0;
-          }
-          updateResponsibilityTotal(toggle.closest(".responsibility-question"));
-        }
-        toggle.addEventListener("change", update);
-        update();
       });
     }
 
@@ -1526,7 +1487,7 @@
     function durationWithCurrentStep() {
       const durations = { ...state.stepDurationsMs };
       const key = steps[state.step];
-      if (key && state.pageEnteredMs && key !== "final") {
+      if (key && state.pageEnteredMs) {
         durations[key] = (durations[key] || 0) + Math.max(0, Date.now() - state.pageEnteredMs);
       }
       return durations;
@@ -1570,6 +1531,7 @@
         startedAt: state.startedAt,
         currentStep: state.step,
         submittedAt: new Date().toISOString(),
+        emailSent: state.emailSent,
         stepDurationsMs,
         data,
         cases: state.cases,
@@ -1599,7 +1561,7 @@
       const caseFields = [
         "case_no", "case_code", "case_duration", "case_duration_seconds", "doctor", "ai_ability", "ai_advice", "doctor_behavior", "final_treatment",
         "qc_doctor", "qc_treatment", "duty_fulfilled", "same_decision", "same_decision_label",
-        "qc_failed", "fault_size", "responsibility_doctor", "responsibility_institution", "responsibility_developer", "responsibility_has_other", "responsibility_other_name", "responsibility_other",
+        "qc_failed", "fault_size", "responsibility_doctor", "responsibility_institution", "responsibility_developer", "responsibility_other_name", "responsibility_other",
         "confidence", "confidence_label"
       ];
       const valueOf = key => payload.data[key] ?? "";
@@ -1632,7 +1594,6 @@
           valueOf(`${prefix}_responsibility_doctor`),
           valueOf(`${prefix}_responsibility_institution`),
           valueOf(`${prefix}_responsibility_developer`),
-          valueOf(`${prefix}_responsibility_has_other`),
           valueOf(`${prefix}_responsibility_other_name`),
           valueOf(`${prefix}_responsibility_other`),
           valueOf(`${prefix}_confidence`),
@@ -1797,16 +1758,15 @@
       }
       const responsibility = el.querySelector(".responsibility-question");
       if (responsibility) {
-        const hasOther = responsibility.querySelector("[data-other-toggle]")?.checked;
         const otherName = responsibility.querySelector('input[name$="_responsibility_other_name"]');
-        if (hasOther && !otherName.value.trim()) {
-          message.textContent = "您选择了其他项，请填写其他责任方名称。";
+        if (!otherName.value.trim()) {
+          message.textContent = "请填写其他因素名称；如无其他因素，请填写“无”。";
           otherName.focus();
           return false;
         }
         const sum = [...responsibility.querySelectorAll("input[type=number]:not(:disabled)")].reduce((total, input) => total + Number(input.value || 0), 0);
         if (sum !== 100) {
-          message.textContent = "医生、医疗机构、AI开发者及其他责任方的责任分配比例之和必须为100%。";
+          message.textContent = "医生、医疗机构、AI开发者及其他因素的责任分配比例之和必须为100%。";
           return false;
         }
       }
@@ -1827,7 +1787,6 @@
       if (qualityLog.length) {
         state.qualityFailures.push(...qualityLog);
         const saved = await save("quality_failed_attempt", qualityLog);
-        updateSummary();
         message.textContent = saved.ok
           ? "案例理解题回答错误，请重新阅读本页情景内容后再作答。"
           : `案例理解题回答错误，请重新阅读本页情景内容后再作答。本次答错记录已先保存在本机，数据库提示：${saved.error}`;
@@ -1847,9 +1806,9 @@
       progressBar.style.width = `${pct}%`;
       prevBtn.disabled = state.step === 0 || state.step > state.lockedUntil;
       prevBtn.style.display = state.step <= 2 ? "inline-flex" : "none";
-      wizardActions.style.display = steps[state.step] === "final" ? "none" : "flex";
+      wizardActions.style.display = steps[state.step] === "post" || state.completed ? "none" : "flex";
       nextBtn.textContent = state.step === 1 ? "确认无误，下一页" : state.step === 2 ? "确认无误，下一页" : "下一步";
-      if (steps[state.step] === "final") updateSummary();
+      if (state.completed) showCompletion();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
@@ -1872,46 +1831,61 @@
       const payload = collectData();
       payloadJson.value = JSON.stringify(payload, null, 2);
       payloadCsv.value = toCsv(payload);
-      const dbStatus = state.lastSaveOk
-        ? `已保存至数据库，最近保存时间：${state.lastSaveAt}`
-        : `尚未确认保存至数据库，本机已有暂存备份${state.lastSaveError ? `；最近错误：${state.lastSaveError}` : ""}`;
-      summaryTable.innerHTML = `
-        <tr><th>受访者ID</th><td>${state.respondentId}</td></tr>
-        <tr><th>数据状态</th><td>${dbStatus}</td></tr>
-      `;
+    }
+
+    function showCompletion() {
+      document.getElementById("postQuestions").hidden = true;
+      document.getElementById("completionNotice").hidden = false;
+      document.querySelector(".status-card").hidden = true;
+      wizardActions.style.display = "none";
+      stepText.textContent = "已完成";
+      stepPercent.textContent = "100%";
+      progressBar.style.width = "100%";
+      message.textContent = "";
     }
 
     async function sendEmailBackup() {
-      message.textContent = "结果提交中，请稍后";
+      if (state.submitting || state.completed || !(await validateCurrent())) return;
+      state.submitting = true;
+      submitBtn.disabled = true;
+      message.textContent = "正在提交，请稍后...";
+      recordCurrentStepDuration();
       updateSummary();
-      const saved = await save("completed");
+      const saved = await save("in_progress");
       if (!saved.ok) {
-        message.textContent = `数据库暂未确认保存，已继续准备邮件备份。数据库提示：${saved.error}`;
-      }
-      if (!emailJsConfigured()) {
-        message.textContent = "EmailJS 尚未配置，无法发送邮件备份。请先填写 EMAILJS_PUBLIC_KEY、EMAILJS_SERVICE_ID 和 EMAILJS_TEMPLATE_ID。数据库保存不受影响。";
-        return;
-      }
-      if (!window.emailjs) {
-        message.textContent = "EmailJS 脚本未加载成功，请检查网络或稍后重试。数据库保存不受影响。";
+        message.textContent = `数据库保存失败：${saved.error}。请稍后重试。`;
+        state.submitting = false;
+        submitBtn.disabled = false;
         return;
       }
       try {
-        emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-          to_email: EMAIL_TO,
-          subject: "AI辅助诊疗情景实验答题记录",
-          respondent_id: state.respondentId,
-          payload_json: payloadJson.value,
-          payload_csv: payloadCsv.value,
-          payload_excel_csv: payloadCsv.value,
-          payload_excel_html: toExcelHtml(),
-          excel_filename: `${state.respondentId}.xls`,
-          excel_file: excelAttachment()
-        });
-        message.textContent = "已提交，感谢您的参与。";
+        if (!state.emailSent) {
+          if (!emailJsConfigured() || !window.emailjs) throw new Error("邮件服务暂不可用");
+          emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+            to_email: EMAIL_TO,
+            subject: "AI辅助诊疗情景实验答题记录",
+            respondent_id: state.respondentId,
+            payload_json: payloadJson.value,
+            payload_csv: payloadCsv.value,
+            payload_excel_csv: payloadCsv.value,
+            payload_excel_html: toExcelHtml(),
+            excel_filename: `${state.respondentId}.xls`,
+            excel_file: excelAttachment()
+          });
+          state.emailSent = true;
+          localStorage.setItem("ai_fault_experiment_email_sent", state.respondentId);
+        }
+        const completed = await save("completed");
+        if (!completed.ok) throw new Error(`数据库最终确认失败：${completed.error}`);
+        localStorage.removeItem("ai_fault_experiment_email_sent");
+        state.completed = true;
+        showCompletion();
       } catch (error) {
-        message.textContent = `邮件备份发送失败：${describeError(error)}。数据库保存不受影响。`;
+        message.textContent = `提交未完成：${describeError(error)}。答案已暂存，请稍后点击“提交”重试。`;
+      } finally {
+        state.submitting = false;
+        submitBtn.disabled = false;
       }
     }
 
@@ -1969,6 +1943,8 @@
       state.step = Math.min(Number(row.current_step || 0), 3 + state.cases.length);
       state.lockedUntil = state.step;
       state.savedPayload = row.payload_json;
+      state.emailSent = state.savedPayload?.emailSent === true || localStorage.getItem("ai_fault_experiment_email_sent") === state.respondentId;
+      state.completed = row.status === "completed" && state.savedPayload?.emailSent === true;
       state.lastSaveOk = row.status === "completed" || Boolean(state.savedPayload);
       state.lastSaveAt = row.status === "completed" ? "已由平台记录" : "";
       if (state.savedPayload?.startedAt) {
@@ -1986,8 +1962,7 @@
         recordCurrentStepDuration();
         state.lockedUntil = Math.max(state.lockedUntil, state.step + 1);
         state.step += 1;
-        const status = steps[state.step] === "final" ? "completed" : "in_progress";
-        const saved = await save(status);
+        const saved = await save("in_progress");
         goTo(state.step);
         if (!saved.ok) {
           message.textContent = `本页答案已在本机暂存，但数据库同步失败：${saved.error}。您可以继续作答，系统会在后续页面继续尝试保存。`;
@@ -2017,7 +1992,7 @@
     document.getElementById("emailBtn").addEventListener("click", sendEmailBackup);
     form.addEventListener("submit", async event => {
       event.preventDefault();
-      await sendEmailBackup();
+      if (steps[state.step] === "post") await sendEmailBackup();
     });
 
     (async function boot() {
