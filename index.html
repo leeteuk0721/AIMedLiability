@@ -490,16 +490,6 @@
       align-items: center;
     }
 
-    .other-responsibility {
-      display: grid;
-      gap: 12px;
-      margin-top: 10px;
-      padding: 12px;
-      background: #fff;
-      border: 1px dashed #9fb8d8;
-      border-radius: 8px;
-    }
-
     input[type="range"] {
       width: 100%;
       accent-color: var(--blue);
@@ -1374,22 +1364,16 @@
             <div class="slider-grid"><input id="case_${index + 1}_fault_size" name="case_${index + 1}_fault_size" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></div>
           </div>
           <div class="question responsibility-question">
-            <div class="field-label">2.4 您认为在本案例中，医生、医疗机构、AI开发者及其他因素的责任分配比例是多少？ *</div>
-            <div class="hint">请拖动滑块或在方框中填写数字以完成判断。<br>其他因素请填写名称，例如患者因素、疾病因素等；若没有其他因素，请填写“无”并将比例设为0%。各项比例之和必须为100%，例如50%、20%、20%、10%。</div>
+            <div class="field-label">2.4 您认为在本案例中，医生、医疗机构、AI开发者及其他项的责任分配比例是多少？ *</div>
+            <div class="hint">请拖动滑块或在方框中填写数字以完成判断。其他项可包括患者因素、疾病因素等；若没有其他因素，请填写0%。四项比例之和必须为100%，例如50%、20%、20%、10%。</div>
             ${[
               ["医生", "doctor"],
               ["医疗机构", "institution"],
-              ["AI开发者", "developer"]
+              ["AI开发者", "developer"],
+              ["其他项", "other"]
             ].map(([label, key]) => {
               return `<label class="slider-grid">${label}<input name="case_${index + 1}_responsibility_${key}" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></label>`;
             }).join("")}
-            <div class="other-responsibility">
-              <div class="field">
-                <label for="case_${index + 1}_responsibility_other_name">其他因素名称 *</label>
-                <input id="case_${index + 1}_responsibility_other_name" name="case_${index + 1}_responsibility_other_name" type="text" placeholder="例如患者因素、疾病因素；没有则填无" required>
-              </div>
-              <label class="slider-grid">其他因素比例<input name="case_${index + 1}_responsibility_other" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></label>
-            </div>
             <div class="total-row">当前合计：<span class="responsibility-total danger-text">0</span>%</div>
           </div>
           ${renderScale("confidence", caseEvaluationQuestions[1][1], caseEvaluationQuestions[1][2], `case_${index + 1}`)}
@@ -1561,7 +1545,7 @@
       const caseFields = [
         "case_no", "case_code", "case_duration", "case_duration_seconds", "doctor", "ai_ability", "ai_advice", "doctor_behavior", "final_treatment",
         "qc_doctor", "qc_treatment", "duty_fulfilled", "same_decision", "same_decision_label",
-        "qc_failed", "fault_size", "responsibility_doctor", "responsibility_institution", "responsibility_developer", "responsibility_other_name", "responsibility_other",
+        "qc_failed", "fault_size", "responsibility_doctor", "responsibility_institution", "responsibility_developer", "responsibility_other",
         "confidence", "confidence_label"
       ];
       const valueOf = key => payload.data[key] ?? "";
@@ -1594,7 +1578,6 @@
           valueOf(`${prefix}_responsibility_doctor`),
           valueOf(`${prefix}_responsibility_institution`),
           valueOf(`${prefix}_responsibility_developer`),
-          valueOf(`${prefix}_responsibility_other_name`),
           valueOf(`${prefix}_responsibility_other`),
           valueOf(`${prefix}_confidence`),
           valueOf(`${prefix}_confidence_label`)
@@ -1758,15 +1741,9 @@
       }
       const responsibility = el.querySelector(".responsibility-question");
       if (responsibility) {
-        const otherName = responsibility.querySelector('input[name$="_responsibility_other_name"]');
-        if (!otherName.value.trim()) {
-          message.textContent = "请填写其他因素名称；如无其他因素，请填写“无”。";
-          otherName.focus();
-          return false;
-        }
         const sum = [...responsibility.querySelectorAll("input[type=number]:not(:disabled)")].reduce((total, input) => total + Number(input.value || 0), 0);
         if (sum !== 100) {
-          message.textContent = "医生、医疗机构、AI开发者及其他因素的责任分配比例之和必须为100%。";
+          message.textContent = "医生、医疗机构、AI开发者及其他项的责任分配比例之和必须为100%。";
           return false;
         }
       }
