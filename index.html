@@ -490,6 +490,17 @@
       align-items: center;
     }
 
+    .responsibility-label {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .responsibility-control {
+      display: grid;
+      gap: 8px;
+    }
+
     input[type="range"] {
       width: 100%;
       accent-color: var(--blue);
@@ -1365,14 +1376,15 @@
           </div>
           <div class="question responsibility-question">
             <div class="field-label">2.4 您认为在本案例中，医生、医疗机构、AI开发者及其他项的责任分配比例是多少？ *</div>
-            <div class="hint">请拖动滑块或在方框中填写数字以完成判断。其他项例如患者因素、疾病因素等其他因素；若没有其他因素，请填写0%。四项比例之和必须为100%，例如50%、20%、20%、10%。</div>
+            <div class="hint">请拖动滑块或在方框中填写数字以完成判断。若没有其他因素，请填写0%。四项比例之和必须为100%，例如50%、20%、20%、10%。</div>
             ${[
               ["医生", "doctor"],
               ["医疗机构", "institution"],
               ["AI开发者", "developer"],
               ["其他项", "other"]
             ].map(([label, key]) => {
-              return `<label class="slider-grid">${label}<input name="case_${index + 1}_responsibility_${key}" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></label>`;
+              const otherHint = key === "other" ? `<span class="hint responsibility-other-hint">例如患者因素、疾病因素等其他因素</span>` : "";
+              return `<label class="slider-grid"><span class="responsibility-label">${label}${otherHint}</span><span class="responsibility-control"><input name="case_${index + 1}_responsibility_${key}" type="number" min="0" max="100" placeholder="0-100" required><input type="range" min="0" max="100" value="0"></span></label>`;
             }).join("")}
             <div class="total-row">当前合计：<span class="responsibility-total danger-text">0</span>%</div>
           </div>
