@@ -772,10 +772,10 @@
 
     <section class="panel">
       <div class="block warn config-warning" id="configWarning">
-        数据库尚未配置。请在页面代码顶部填写 Supabase 项目 URL 和 anon key 后再正式发布。
+        无法保存本机进度。请允许浏览器保存网站数据后再继续作答。
       </div>
       <div class="block save-notice">
-        如页面短暂卡顿或按钮响应较慢，请稍等几秒，系统正在保存进度。
+        答题进度保存在本机，请使用同一设备、同一浏览器和同一网址继续作答，勿清除网站数据或使用无痕模式；最后点击“提交”发送答题记录。
       </div>
 
       <form id="surveyForm">
@@ -979,16 +979,14 @@
     </section>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <script>
-    const SUPABASE_URL = "https://ygjoqsrfolgxzihdtqnu.supabase.co";
-    const SUPABASE_ANON_KEY = "sb_publishable_rgunkStzBV1_0Pxb76C0NQ_1dZSIBuQ";
     const EMAIL_TO = "xxy996269@163.com";
     const EMAILJS_PUBLIC_KEY = "pFjXVYhJk0aFdsZ5D";
     const EMAILJS_SERVICE_ID = "service_cgn445g";
     const EMAILJS_TEMPLATE_ID = "template_xd59veu";
     const STORAGE_KEY = "ai_fault_experiment_respondent_id";
     const BACKUP_KEY = "ai_fault_experiment_pending_backup";
+    const SESSION_KEY = "ai_fault_experiment_local_session_v1";
 
     // These labels are masked study codes. They are never shown in the questionnaire.
     const groups = {
@@ -1097,9 +1095,20 @@
       return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value || "");
     }
 
-    const savedRespondentId = localStorage.getItem(STORAGE_KEY);
+    function createRespondentId() {
+      if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      bytes[6] = (bytes[6] & 15) | 64;
+      bytes[8] = (bytes[8] & 63) | 128;
+      const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+
+    let savedRespondentId = null;
+    let storageError = null;
+    try { savedRespondentId = localStorage.getItem(STORAGE_KEY); } catch (error) { storageError = error; }
     const state = {
-      respondentId: validUuid(savedRespondentId) ? savedRespondentId : crypto.randomUUID(),
+      respondentId: validUuid(savedRespondentId) ? savedRespondentId : createRespondentId(),
       groupCode: null,
       groupLabel: null,
       cases: [],
@@ -1119,7 +1128,7 @@
       lastSaveError: ""
     };
 
-    localStorage.setItem(STORAGE_KEY, state.respondentId);
+    try { localStorage.setItem(STORAGE_KEY, state.respondentId); } catch (error) { storageError = error; }
 
     const form = document.getElementById("surveyForm");
     const stepsHost = document.getElementById("caseSteps");
@@ -1136,31 +1145,10 @@
 
     let steps = ["intro", "profile", "instructions", "post"];
 
-    function isConfigured() {
-      return !SUPABASE_URL.includes("YOUR-PROJECT-REF") && !SUPABASE_ANON_KEY.includes("YOUR-SUPABASE");
-    }
-
-    async function rpc(name, body) {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const text = await response.text();
-      return text ? JSON.parse(text) : null;
-    }
-
     function describeError(error) {
-      const text = String(error && error.message ? error.message : error);
-      if (text.includes("Failed to fetch")) return "无法连接数据库服务";
-      if (text.includes("JWT")) return "Supabase key 无效或权限不足";
-      if (text.includes("invalid input syntax for type uuid")) return "本机缓存的受访者ID格式异常，已自动修复";
-      return text.slice(0, 180);
+      if (error?.name === "QuotaExceededError") return "浏览器存储空间不足，请先下载答案备份";
+      if (error?.name === "SecurityError") return "浏览器禁止保存网站数据，请检查浏览器设置";
+      return String(error?.message || error?.text || error).slice(0, 180);
     }
 
     function emailJsConfigured() {
@@ -1684,37 +1672,33 @@
       return `data:application/vnd.ms-excel;base64,${toBase64Utf8(toExcelHtml())}`;
     }
 
-    function saveLocalBackup(reason = "") {
-      localStorage.setItem(BACKUP_KEY, JSON.stringify({
+    function saveLocalBackup(reason = "", status = state.completed ? "completed" : "in_progress") {
+      const payload = collectData();
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        version: 1,
         reason,
         savedAt: new Date().toISOString(),
-        payload: collectData()
+        status,
+        lockedUntil: state.lockedUntil,
+        emailSent: state.emailSent,
+        completed: state.completed,
+        payload
       }));
     }
 
-    async function save(status = "in_progress", qualityLog = []) {
-      if (!isConfigured()) {
-        saveLocalBackup("Supabase 尚未配置");
-        return { ok: false, error: "Supabase 尚未配置" };
-      }
+    function save(status = "in_progress", qualityLog = []) {
       try {
-        await rpc("save_survey_progress", {
-          p_respondent_id: state.respondentId,
-          p_current_step: state.step,
-          p_status: status,
-          p_payload: collectData(),
-          p_quality_log: qualityLog
-        });
-        localStorage.removeItem(BACKUP_KEY);
+        saveLocalBackup("", status);
         state.lastSaveOk = true;
         state.lastSaveAt = new Date().toISOString();
         state.lastSaveError = "";
+        document.getElementById("configWarning").style.display = "none";
         return { ok: true };
       } catch (error) {
         const reason = describeError(error);
-        saveLocalBackup(reason);
         state.lastSaveOk = false;
         state.lastSaveError = reason;
+        document.getElementById("configWarning").style.display = "block";
         return { ok: false, error: reason };
       }
     }
@@ -1778,7 +1762,7 @@
         const saved = await save("quality_failed_attempt", qualityLog);
         message.textContent = saved.ok
           ? "案例理解题回答错误，请重新阅读本页情景内容后再作答。"
-          : `案例理解题回答错误，请重新阅读本页情景内容后再作答。本次答错记录已先保存在本机，数据库提示：${saved.error}`;
+          : `案例理解题回答错误，请重新阅读本页情景内容后再作答。本次答错记录未能保存到本机：${saved.error}`;
         return false;
       }
       return true;
@@ -1803,17 +1787,36 @@
 
     function restorePayload(payload) {
       if (!payload || !payload.data) return;
-      Object.entries(payload.data).forEach(([name, value]) => {
-        const controls = form.elements[name];
-        if (!controls) return;
-        if (controls instanceof RadioNodeList) {
-          [...controls].forEach(input => {
-            if (input.value === value) input.checked = true;
-          });
-        } else {
-          controls.value = value;
-        }
+      const data = payload.data;
+      // Restore province first so that the city option exists before assigning it.
+      if (data.province) {
+        form.elements.province.value = data.province;
+        form.elements.province.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      Object.entries(data).forEach(([name, value]) => {
+        const controls = [...form.elements].filter(control => control.name === name);
+        controls.forEach(control => {
+          if (control.type === "radio" || control.type === "checkbox") {
+            control.checked = control.value === value;
+          } else if (control.hasAttribute("data-scale-value")) {
+            control.value = value ? `${value}:${data[`${name}_label`] || ""}` : "";
+          } else {
+            control.value = value;
+          }
+        });
       });
+      const workplace = form.querySelector('input[name="workplace"]:checked');
+      workplace?.dispatchEvent(new Event("change", { bubbles: true }));
+      const specialty = form.querySelector('input[name="specialty"]:checked');
+      specialty?.dispatchEvent(new Event("change", { bubbles: true }));
+      form.querySelectorAll(".slider-grid").forEach(row => {
+        const number = row.querySelector("input[type=number]");
+        const range = row.querySelector("input[type=range]");
+        if (number && range) range.value = number.value || 0;
+      });
+      form.querySelectorAll(".responsibility-question").forEach(updateResponsibilityTotal);
+      form.dispatchEvent(new CustomEvent("conditionalchange"));
+      setupResponsiveScales();
     }
 
     function updateSummary() {
@@ -1833,25 +1836,48 @@
       message.textContent = "";
     }
 
+    let emailSdkPromise = null;
+    function loadEmailSdk() {
+      if (window.emailjs) return Promise.resolve(window.emailjs);
+      if (emailSdkPromise) return emailSdkPromise;
+      emailSdkPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        const timer = setTimeout(() => fail(), 15000);
+        function fail() {
+          clearTimeout(timer);
+          script.remove();
+          emailSdkPromise = null;
+          reject(new Error("邮件组件加载失败，请检查网络后重试"));
+        }
+        script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
+        script.onload = () => {
+          if (!window.emailjs) return fail();
+          clearTimeout(timer);
+          resolve(window.emailjs);
+        };
+        script.onerror = fail;
+        document.head.appendChild(script);
+      });
+      return emailSdkPromise;
+    }
+
     async function sendEmailBackup() {
-      if (state.submitting || state.completed || !(await validateCurrent())) return;
+      if (state.submitting || state.completed) return;
       state.submitting = true;
       submitBtn.disabled = true;
-      message.textContent = "正在提交，请稍后...";
-      recordCurrentStepDuration();
-      updateSummary();
-      const saved = await save("in_progress");
-      if (!saved.ok) {
-        message.textContent = `数据库保存失败：${saved.error}。请稍后重试。`;
-        state.submitting = false;
-        submitBtn.disabled = false;
-        return;
-      }
+      let sendTimer;
       try {
+        if (!(await validateCurrent())) return;
+        message.textContent = "正在提交，请稍后...";
+        recordCurrentStepDuration();
+        const saved = save("in_progress");
+        if (!saved.ok) throw new Error(`本机保存失败：${saved.error}`);
+        updateSummary();
         if (!state.emailSent) {
-          if (!emailJsConfigured() || !window.emailjs) throw new Error("邮件服务暂不可用");
-          emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
-          await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          if (!emailJsConfigured()) throw new Error("邮件服务尚未配置");
+          const sdk = await loadEmailSdk();
+          sdk.init({ publicKey: EMAILJS_PUBLIC_KEY });
+          const sending = sdk.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
             to_email: EMAIL_TO,
             subject: "AI辅助诊疗情景实验答题记录",
             respondent_id: state.respondentId,
@@ -1861,18 +1887,33 @@
             payload_excel_html: toExcelHtml(),
             excel_filename: `${state.respondentId}.xls`,
             excel_file: excelAttachment()
+          }).then(result => {
+            state.emailSent = true;
+            state.completed = true;
+            const persisted = save("completed");
+            if (!persisted.ok) {
+              state.completed = false;
+              throw new Error(`邮件已发送，但本机完成标记保存失败：${persisted.error}`);
+            }
+            showCompletion();
+            return result;
           });
-          state.emailSent = true;
-          localStorage.setItem("ai_fault_experiment_email_sent", state.respondentId);
+          await Promise.race([sending, new Promise((_, reject) => {
+            sendTimer = setTimeout(() => reject(new Error("邮件发送等待超时，发送结果暂不确定；可稍后重试，管理员将按受访者编号去重")), 30000);
+          })]);
+        } else {
+          state.completed = true;
+          const completed = save("completed");
+          if (!completed.ok) {
+            state.completed = false;
+            throw new Error(`邮件已发送，但本机完成标记保存失败：${completed.error}`);
+          }
+          showCompletion();
         }
-        const completed = await save("completed");
-        if (!completed.ok) throw new Error(`数据库最终确认失败：${completed.error}`);
-        localStorage.removeItem("ai_fault_experiment_email_sent");
-        state.completed = true;
-        showCompletion();
       } catch (error) {
-        message.textContent = `提交未完成：${describeError(error)}。答案已暂存，请稍后点击“提交”重试。`;
+        message.textContent = `提交状态提示：${describeError(error)}。已保存的答案会保留在本机。`;
       } finally {
+        clearTimeout(sendTimer);
         state.submitting = false;
         submitBtn.disabled = false;
       }
@@ -1912,56 +1953,78 @@
     }
 
     async function initBackend() {
-      if (!isConfigured()) {
-        document.getElementById("configWarning").style.display = "block";
+      localStorage.setItem(STORAGE_KEY, state.respondentId);
+      storageError = null;
+      const raw = localStorage.getItem(SESSION_KEY);
+      const legacy = !raw && localStorage.getItem(BACKUP_KEY);
+      const record = raw ? JSON.parse(raw) : legacy ? JSON.parse(legacy) : null;
+      if (record && raw && record.version !== 1) throw new Error("本机进度版本不支持，请联系管理员，勿清除网站数据");
+      const payload = record?.payload;
+      if (record) {
+        if (!payload || payload.respondentId !== state.respondentId
+            || !Object.prototype.hasOwnProperty.call(groups, payload.groupCode)
+            || !Array.isArray(payload.cases) || payload.cases.length !== 4
+            || !Number.isInteger(payload.currentStep) || payload.currentStep < 0 || payload.currentStep > 7) {
+          throw new Error("本机进度不完整，请联系管理员，勿清除网站数据");
+        }
+        state.groupCode = payload.groupCode;
+        state.groupLabel = groups[state.groupCode];
+        state.cases = codeCases(state.groupCode, payload.cases);
+        state.step = payload.currentStep;
+        state.lockedUntil = Math.max(state.step, Math.min(7, Number(record.lockedUntil) || state.step));
+        state.savedPayload = payload;
+        state.emailSent = record.emailSent === true || payload.emailSent === true
+          || localStorage.getItem("ai_fault_experiment_email_sent") === state.respondentId;
+        state.completed = state.emailSent;
+        state.startedAt = payload.startedAt || state.startedAt;
+        state.surveyStartedMs = Date.parse(state.startedAt) || state.surveyStartedMs;
+        state.stepDurationsMs = payload.stepDurationsMs || {};
+        state.qualityFailures = Array.isArray(payload.qualityFailures) ? payload.qualityFailures : [];
+      } else {
         state.groupCode = randomGroupCode();
         state.groupLabel = groups[state.groupCode];
         state.cases = shuffle(codeCases(state.groupCode, groupCases[state.groupCode]));
-        state.step = 0;
-        state.lockedUntil = 0;
-        return;
+        // Persist the first assignment immediately, before any answers are entered.
+        saveLocalBackup();
       }
-      const result = await rpc("assign_or_restore_survey", {
-        p_respondent_id: state.respondentId,
-        p_user_agent: navigator.userAgent
-      });
-      const row = Array.isArray(result) ? result[0] : result;
-      state.groupCode = row.group_code;
-      state.groupLabel = row.group_label;
-      state.cases = codeCases(state.groupCode, row.cases_json || shuffle(groupCases[state.groupCode]));
-      state.step = Math.min(Number(row.current_step || 0), 3 + state.cases.length);
-      state.lockedUntil = state.step;
-      state.savedPayload = row.payload_json;
-      state.emailSent = state.savedPayload?.emailSent === true || localStorage.getItem("ai_fault_experiment_email_sent") === state.respondentId;
-      state.completed = row.status === "completed" && state.savedPayload?.emailSent === true;
-      state.lastSaveOk = row.status === "completed" || Boolean(state.savedPayload);
-      state.lastSaveAt = row.status === "completed" ? "已由平台记录" : "";
-      if (state.savedPayload?.startedAt) {
-        state.startedAt = state.savedPayload.startedAt;
-        state.surveyStartedMs = Date.parse(state.startedAt) || state.surveyStartedMs;
-      }
-      if (state.savedPayload?.stepDurationsMs) state.stepDurationsMs = state.savedPayload.stepDurationsMs;
-      if (Array.isArray(state.savedPayload?.qualityFailures)) state.qualityFailures = state.savedPayload.qualityFailures;
     }
 
+    let advancing = false;
+    let backendReady = false;
+    let booting = false;
     nextBtn.addEventListener("click", async () => {
+      if (!backendReady) {
+        if (!booting) await boot();
+        return;
+      }
+      if (advancing) return;
+      advancing = true;
+      nextBtn.disabled = true;
+      prevBtn.disabled = true;
       try {
         if (!(await validateCurrent())) return;
         message.textContent = "正在保存，请稍等...";
         recordCurrentStepDuration();
+        const previousStep = state.step;
+        const previousLockedUntil = state.lockedUntil;
         state.lockedUntil = Math.max(state.lockedUntil, state.step + 1);
         state.step += 1;
-        const saved = await save("in_progress");
-        goTo(state.step);
+        const saved = save("in_progress");
         if (!saved.ok) {
-          message.textContent = `本页答案已在本机暂存，但数据库同步失败：${saved.error}。您可以继续作答，系统会在后续页面继续尝试保存。`;
-        } else {
-          message.textContent = "本页答案已保存。";
+          state.step = previousStep;
+          state.lockedUntil = previousLockedUntil;
+          message.textContent = `本机保存失败：${saved.error}。请处理后重试，当前答案仍保留在页面中。`;
+          return;
         }
+        goTo(state.step);
+        message.textContent = "本页答案已保存在本机。";
       } catch (error) {
-        saveLocalBackup(describeError(error));
-        message.textContent = `本页答案已在本机暂存，但数据库同步失败：${describeError(error)}。您可以继续作答。`;
+        message.textContent = `本页暂未完成保存：${describeError(error)}。请重试。`;
         console.error(error);
+      } finally {
+        advancing = false;
+        nextBtn.disabled = false;
+        prevBtn.disabled = state.step === 0 || state.step > state.lockedUntil;
       }
     });
 
@@ -1969,6 +2032,8 @@
       if (state.step <= state.lockedUntil && state.step <= 2) {
         recordCurrentStepDuration();
         goTo(state.step - 1);
+        const saved = save();
+        if (!saved.ok) message.textContent = `本机保存失败：${saved.error}`;
       }
     });
 
@@ -1984,26 +2049,65 @@
       if (steps[state.step] === "post") await sendEmailBackup();
     });
 
-    (async function boot() {
+    let autosaveTimer;
+    function saveEdits() {
+      if (!backendReady || state.completed || state.submitting) return;
+      const saved = save();
+      if (!saved.ok) message.textContent = `本机保存失败：${saved.error}。请勿关闭页面。`;
+    }
+    function scheduleSave() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(saveEdits, 250);
+    }
+    form.addEventListener("input", scheduleSave);
+    form.addEventListener("change", scheduleSave);
+    window.addEventListener("pagehide", saveEdits);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") saveEdits();
+    });
+
+    let controlsSetup = false;
+    async function boot() {
+      if (booting) return;
+      booting = true;
+      nextBtn.disabled = true;
+      prevBtn.disabled = true;
+      let phase = "页面准备";
+      message.textContent = "正在恢复本机答题进度，请稍等…";
       try {
+        if (!controlsSetup) {
         setupProvinceCity();
         setupConditionalOrg();
         setupSpecialtyMobile();
         setupOtherRequired();
         setupScales();
+        controlsSetup = true;
+        }
+        phase = "读取本机进度";
         await initBackend();
+        phase = "加载问卷内容";
         renderInstructions();
         renderCases();
         setupResponsiveScales();
         restorePayload(state.savedPayload);
-        setupOtherRequired();
         setupResponsiveScales();
         goTo(state.step);
+        const saved = save();
+        if (!saved.ok) throw new Error(saved.error);
+        backendReady = true;
+        message.textContent = "";
       } catch (error) {
-        message.textContent = "实验页面初始化失败，请稍后刷新重试。";
+        backendReady = false;
+        message.textContent = `问卷初始化失败（${phase}）：${describeError(error)}。请点击“重新加载”重试；若反复失败，请将此提示发送给管理员。`;
+        nextBtn.textContent = "重新加载";
         console.error(error);
+      } finally {
+        booting = false;
+        nextBtn.disabled = false;
+        prevBtn.disabled = !backendReady || state.step === 0 || state.step > state.lockedUntil;
       }
-    })();
+    }
+    boot();
   </script>
 </body>
 </html>
