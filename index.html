@@ -1850,19 +1850,29 @@
       emailSdkPromise = new Promise((resolve, reject) => {
         const script = document.createElement("script");
         const timer = setTimeout(() => fail(), 15000);
+        let triedCdnFallback = false;
         function fail() {
           clearTimeout(timer);
           script.remove();
           emailSdkPromise = null;
           reject(new Error("邮件组件加载失败，请检查网络后重试"));
         }
-        script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js";
+        // Keep the SDK with the questionnaire so page loading does not depend
+        // on access to jsDelivr. The SDK still sends through EmailJS' API.
+        script.src = "./emailjs-browser-5.min.js";
         script.onload = () => {
           if (!window.emailjs) return fail();
           clearTimeout(timer);
           resolve(window.emailjs);
         };
-        script.onerror = fail;
+        script.onerror = () => {
+          // Keep a fallback for deployments where the companion file was not
+          // uploaded together with index.html.
+          if (triedCdnFallback) return fail();
+          triedCdnFallback = true;
+          script.src = "https://cdn.jsdelivr.net/npm/@emailjs/browser@5/dist/email.min.js";
+          document.head.appendChild(script);
+        };
         document.head.appendChild(script);
       });
       return emailSdkPromise;
@@ -1872,12 +1882,11 @@
       if (!emailJsConfigured()) throw new Error("邮件服务尚未配置");
       const sdk = await loadEmailSdk();
       sdk.init({ publicKey: EMAILJS_PUBLIC_KEY });
-      const pagePayload = { page: pageKey, pageDuration: payload.pageDuration || "", data: payload.data || payload };
       const response = await sdk.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
         to_email: EMAIL_TO,
         subject,
         respondent_id: state.respondentId,
-        payload_json: JSON.stringify(pagePayload, null, 2),
+        payload_json: JSON.stringify(payload, null, 2),
         payload_csv: "",
         payload_excel_csv: "",
         payload_excel_html: "",
@@ -1904,6 +1913,9 @@
         submittedAt: payload.submittedAt,
         abnormalEvents: payload.abnormalEvents || [],
         qualityFailures: (payload.qualityFailures || []).filter(item => !pageKey.startsWith("case_") || item.step === pageKey),
+        qualityControlStatus: (payload.qualityFailures || []).some(item => !pageKey.startsWith("case_") || item.step === pageKey)
+          ? "质控题回答错误（已记录）"
+          : "本页质控正确",
         data
       };
     }
@@ -1958,6 +1970,7 @@
           showCompletion();
         }
       } catch (error) {
+        console.error("EmailJS submission failed:", error);
         message.textContent = `请更换数据网络重试，或联系18061291721`;
         recordAttemptEvent("email_submit_failed", describeError(error));
       } finally {
@@ -2076,6 +2089,7 @@
               new Promise((_, reject) => setTimeout(() => reject(new Error("邮件发送超时")), 30000))
             ]);
           } catch (error) {
+            console.error("EmailJS page snapshot failed:", error);
             state.step = previousStep;
             state.lockedUntil = previousLockedUntil;
             goTo(previousStep);
