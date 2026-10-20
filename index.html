@@ -1714,7 +1714,12 @@
         headers: { apikey: ATTEMPT_TRACKING_KEY, "Content-Type": "application/json",
           Prefer: "resolution=merge-duplicates,return=minimal" },
         body
-      })).then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); }).catch(error => {
+      })).then(async response => {
+        if (!response.ok) {
+          const detail = await response.text();
+          throw new Error(`HTTP ${response.status}: ${detail.slice(0, 300)}`);
+        }
+      }).catch(error => {
         state.lastTrackingError = describeError(error);
         if (backendReady && !state.submitting) message.textContent = `同步异常：${state.lastTrackingError}。本地仍已保存，系统会继续重试。`;
       });
@@ -1897,6 +1902,43 @@
       return emailSdkPromise;
     }
 
+    async function sendSnapshotEmail(subject, payload, pageKey = "") {
+      if (!emailJsConfigured()) throw new Error("邮件服务尚未配置");
+      const sdk = await loadEmailSdk();
+      sdk.init({ publicKey: EMAILJS_PUBLIC_KEY });
+      const pagePayload = { page: pageKey, pageDuration: payload.pageDuration || "", data: payload.data || payload };
+      const response = await sdk.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: EMAIL_TO,
+        subject,
+        respondent_id: state.respondentId,
+        payload_json: JSON.stringify(pagePayload, null, 2),
+        payload_csv: "",
+        payload_excel_csv: "",
+        payload_excel_html: "",
+        excel_filename: "",
+        excel_file: ""
+      });
+      return response;
+    }
+
+    function pageSnapshot(pageKey, payload) {
+      const data = {};
+      const prefix = pageKey.startsWith("case_") ? `${pageKey}_` : "";
+      Object.entries(payload.data || {}).forEach(([key, value]) => {
+        if (!prefix || key.startsWith(prefix) || ["age", "gender", "workplace", "province", "city"].includes(key)) data[key] = value;
+      });
+      return {
+        page: pageKey,
+        pageDuration: payload.caseDurations?.[pageKey] || payload.stepDurationsMs?.[pageKey] || "",
+        groupCode: payload.groupCode,
+        groupLabel: payload.groupLabel,
+        caseRandomizationResult: payload.caseRandomizationResult,
+        startedAt: payload.startedAt,
+        submittedAt: payload.submittedAt,
+        data
+      };
+    }
+
     async function sendEmailBackup() {
       if (state.submitting || state.completed) return;
       state.submitting = true;
@@ -1915,7 +1957,7 @@
           sdk.init({ publicKey: EMAILJS_PUBLIC_KEY });
           const sending = sdk.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
             to_email: EMAIL_TO,
-            subject: "AI辅助诊疗情景实验答题记录",
+            subject: `完整邮件+${state.respondentId}`,
             respondent_id: state.respondentId,
             payload_json: payloadJson.value,
             payload_csv: payloadCsv.value,
@@ -1947,7 +1989,7 @@
           showCompletion();
         }
       } catch (error) {
-        message.textContent = `提交状态提示：${describeError(error)}。已保存的答案会保留在本机。`;
+        message.textContent = `请更换数据网络重试，或联系18061291721（${describeError(error)}）`;
         recordAttemptEvent("email_submit_failed", describeError(error));
       } finally {
         clearTimeout(sendTimer);
@@ -2053,8 +2095,17 @@
           message.textContent = `本机保存失败：${saved.error}。请处理后重试，当前答案仍保留在页面中。`;
           return;
         }
+        const pageKey = steps[previousStep];
+        const pagePayload = collectData();
+        const mailSubject = previousStep === 0
+          ? `同意填答+${state.respondentId}`
+          : `中间填答+${state.respondentId}`;
+        sendSnapshotEmail(mailSubject, pageSnapshot(pageKey, pagePayload), pageKey).catch(error => {
+          message.textContent = `请更换数据网络重试，或联系18061291721（${describeError(error)}）`;
+          recordAttemptEvent("email_submit_failed", describeError(error), { page: pageKey, subject: mailSubject });
+        });
         goTo(state.step);
-        message.textContent = "本页答案已保存在本机。";
+        message.textContent = "本页已保存，正在发送记录。";
       } catch (error) {
         message.textContent = `本页暂未完成保存：${describeError(error)}。请重试。`;
         console.error(error);
