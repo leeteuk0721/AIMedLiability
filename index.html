@@ -2051,7 +2051,7 @@
       prevBtn.disabled = true;
       try {
         if (!(await validateCurrent())) return;
-        message.textContent = "正在保存，请稍等...";
+        message.textContent = "";
         recordCurrentStepDuration();
         const previousStep = state.step;
         const previousLockedUntil = state.lockedUntil;
@@ -2070,13 +2070,23 @@
           const mailSubject = previousStep === 0
             ? `同意填答+${state.respondentId}`
             : `中间填答+${state.respondentId}`;
-          sendSnapshotEmail(mailSubject, pageSnapshot(pageKey, pagePayload), pageKey).catch(error => {
-            message.textContent = `请更换数据网络重试，或联系18061291721`;
+          try {
+            await Promise.race([
+              sendSnapshotEmail(mailSubject, pageSnapshot(pageKey, pagePayload), pageKey),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("邮件发送超时")), 30000))
+            ]);
+          } catch (error) {
+            state.step = previousStep;
+            state.lockedUntil = previousLockedUntil;
+            goTo(previousStep);
+            save("email_submit_failed");
+            message.textContent = "请更换网络重试";
             recordAttemptEvent("email_submit_failed", describeError(error), { page: pageKey, subject: mailSubject });
-          });
+            return;
+          }
         }
         goTo(state.step);
-        message.textContent = "本页已保存，正在发送记录。";
+        message.textContent = "";
       } catch (error) {
         message.textContent = `本页暂未完成保存：${describeError(error)}。请重试。`;
         console.error(error);
