@@ -1692,30 +1692,7 @@
     // Attendance tracking is deliberately fire-and-forget: a failed tracking
     // request must never block the questionnaire or local autosave.
     function recordAttempt() {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 4000);
-      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_records`, {
-        method: "POST",
-        headers: {
-          apikey: ATTEMPT_TRACKING_KEY,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal"
-        },
-        body: JSON.stringify({
-          respondent_id: state.respondentId,
-          group_code: state.groupCode,
-          group_label: state.groupLabel,
-          first_seen_at: new Date().toISOString(),
-          user_agent: navigator.userAgent,
-          referrer: document.referrer || null,
-          record_type: "attempt",
-          payload_json: collectData(),
-          abnormal_events: state.abnormalEvents,
-          current_step: state.step,
-          last_saved_at: new Date().toISOString()
-        }),
-        signal: controller.signal
-      }).catch(() => {}).finally(() => clearTimeout(timer));
+      syncAttemptProgress("opened");
     }
 
     function recordAttemptEvent(eventType, reason, details = {}) {
@@ -1723,22 +1700,25 @@
       syncAttemptProgress(eventType);
     }
 
+    let progressSaveChain = Promise.resolve();
     function syncAttemptProgress(reason = "") {
       let payload;
       try { payload = collectData(); } catch (error) { return; }
-      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_records`, {
+      const body = JSON.stringify({ respondent_id: state.respondentId, group_code: state.groupCode,
+        group_label: state.groupLabel, record_type: "progress", current_step: state.step,
+        payload_json: payload, abnormal_events: state.abnormalEvents,
+        last_saved_at: new Date().toISOString(), save_reason: reason || null,
+        user_agent: navigator.userAgent, referrer: document.referrer || null });
+      progressSaveChain = progressSaveChain.catch(() => {}).then(() => fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_records`, {
         method: "POST", keepalive: true,
         headers: { apikey: ATTEMPT_TRACKING_KEY, "Content-Type": "application/json",
           Prefer: "resolution=merge-duplicates,return=minimal" },
-        body: JSON.stringify({ respondent_id: state.respondentId, group_code: state.groupCode,
-          group_label: state.groupLabel, record_type: "progress", current_step: state.step,
-          payload_json: payload, abnormal_events: state.abnormalEvents,
-          last_saved_at: new Date().toISOString(), save_reason: reason || null,
-          user_agent: navigator.userAgent, referrer: document.referrer || null })
-      }).catch(error => {
+        body
+      })).then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); }).catch(error => {
         state.lastTrackingError = describeError(error);
         if (backendReady && !state.submitting) message.textContent = `同步异常：${state.lastTrackingError}。本地仍已保存，系统会继续重试。`;
       });
+      return progressSaveChain;
     }
 
     function save(status = "in_progress", qualityLog = []) {
@@ -2106,15 +2086,15 @@
       if (steps[state.step] === "post") await sendEmailBackup();
     });
 
-    let autosaveTimer;
     function saveEdits() {
       if (!backendReady || state.completed || state.submitting) return;
       const saved = save();
       if (!saved.ok) message.textContent = `本机保存失败：${saved.error}。请勿关闭页面。`;
     }
     function scheduleSave() {
-      clearTimeout(autosaveTimer);
-      autosaveTimer = setTimeout(saveEdits, 250);
+      // Immediate synchronization: every input/change event writes locally and
+      // queues the current snapshot for Supabase without waiting for a page turn.
+      saveEdits();
     }
     form.addEventListener("input", scheduleSave);
     form.addEventListener("change", scheduleSave);
