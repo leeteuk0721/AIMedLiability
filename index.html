@@ -1127,7 +1127,8 @@
       submitting: false,
       lastSaveOk: false,
       lastSaveAt: "",
-      lastSaveError: ""
+      lastSaveError: "",
+      abnormalEvents: []
     };
 
     try { localStorage.setItem(STORAGE_KEY, state.respondentId); } catch (error) { storageError = error; }
@@ -1693,7 +1694,7 @@
     function recordAttempt() {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 4000);
-      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_attempts`, {
+      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_records`, {
         method: "POST",
         headers: {
           apikey: ATTEMPT_TRACKING_KEY,
@@ -1706,38 +1707,37 @@
           group_label: state.groupLabel,
           first_seen_at: new Date().toISOString(),
           user_agent: navigator.userAgent,
-          referrer: document.referrer || null
+          referrer: document.referrer || null,
+          record_type: "attempt",
+          payload_json: collectData(),
+          abnormal_events: state.abnormalEvents,
+          current_step: state.step,
+          last_saved_at: new Date().toISOString()
         }),
         signal: controller.signal
       }).catch(() => {}).finally(() => clearTimeout(timer));
     }
 
     function recordAttemptEvent(eventType, reason, details = {}) {
-      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_attempt_events`, {
-        method: "POST",
-        keepalive: true,
-        headers: { apikey: ATTEMPT_TRACKING_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({ respondent_id: state.respondentId, group_code: state.groupCode,
-          group_label: state.groupLabel, event_type: eventType, reason,
-          occurred_at: new Date().toISOString(), details })
-      }).catch(() => {});
+      state.abnormalEvents.push({ event_type: eventType, reason, occurred_at: new Date().toISOString(), details });
+      syncAttemptProgress(eventType);
     }
 
     function syncAttemptProgress(reason = "") {
       let payload;
-      try { payload = collectData(); } catch (error) { recordAttemptEvent("progress_save_failed", describeError(error)); return; }
-      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_attempt_progress`, {
-        method: "POST",
-        keepalive: true,
+      try { payload = collectData(); } catch (error) { return; }
+      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_records`, {
+        method: "POST", keepalive: true,
         headers: { apikey: ATTEMPT_TRACKING_KEY, "Content-Type": "application/json",
           Prefer: "resolution=merge-duplicates,return=minimal" },
         body: JSON.stringify({ respondent_id: state.respondentId, group_code: state.groupCode,
-          group_label: state.groupLabel, current_step: state.step, payload_json: payload,
-          last_saved_at: new Date().toISOString(), save_reason: reason || null })
+          group_label: state.groupLabel, record_type: "progress", current_step: state.step,
+          payload_json: payload, abnormal_events: state.abnormalEvents,
+          last_saved_at: new Date().toISOString(), save_reason: reason || null,
+          user_agent: navigator.userAgent, referrer: document.referrer || null })
       }).catch(error => {
         state.lastTrackingError = describeError(error);
-        if (backendReady && !state.submitting) message.textContent = `进度同步异常：${state.lastTrackingError}。本机仍已保存，系统会继续重试。`;
-        recordAttemptEvent("progress_save_failed", state.lastTrackingError, { save_reason: reason });
+        if (backendReady && !state.submitting) message.textContent = `同步异常：${state.lastTrackingError}。本地仍已保存，系统会继续重试。`;
       });
     }
 
