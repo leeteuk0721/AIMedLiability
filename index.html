@@ -772,7 +772,7 @@
 
     <section class="panel">
       <div class="block warn config-warning" id="configWarning">
-        无法保存本机进度。请允许浏览器保存网站数据后再继续作答。
+        问卷进度保存在本机。请允许浏览器保存网站数据后再继续作答。
       </div>
       <div class="block save-notice">
         答题进度保存在本机，请使用同一设备、同一浏览器和同一网址继续作答，勿清除网站数据或使用无痕模式；最后点击“提交”发送答题记录。
@@ -984,8 +984,6 @@
     const EMAILJS_PUBLIC_KEY = "pFjXVYhJk0aFdsZ5D";
     const EMAILJS_SERVICE_ID = "service_cgn445g";
     const EMAILJS_TEMPLATE_ID = "template_xd59veu";
-    const ATTEMPT_TRACKING_URL = "https://ygjoqsrfolgxzihdtqnu.supabase.co";
-    const ATTEMPT_TRACKING_KEY = "sb_publishable_rgunkStzBV1_0Pxb76C0NQ_1dZSIBuQ";
     const STORAGE_KEY = "ai_fault_experiment_respondent_id";
     const BACKUP_KEY = "ai_fault_experiment_pending_backup";
     const SESSION_KEY = "ai_fault_experiment_local_session_v1";
@@ -1689,47 +1687,14 @@
       }));
     }
 
-    // Attendance tracking is deliberately fire-and-forget: a failed tracking
-    // request must never block the questionnaire or local autosave.
-    function recordAttempt() {
-      syncAttemptProgress("opened");
-    }
-
     function recordAttemptEvent(eventType, reason, details = {}) {
       state.abnormalEvents.push({ event_type: eventType, reason, occurred_at: new Date().toISOString(), details });
-      syncAttemptProgress(eventType);
-    }
-
-    let progressSaveChain = Promise.resolve();
-    function syncAttemptProgress(reason = "") {
-      let payload;
-      try { payload = collectData(); } catch (error) { return; }
-      const body = JSON.stringify({ respondent_id: state.respondentId, group_code: state.groupCode,
-        group_label: state.groupLabel, record_type: "progress", current_step: state.step,
-        payload_json: payload, abnormal_events: state.abnormalEvents,
-        last_saved_at: new Date().toISOString(), save_reason: reason || null,
-        user_agent: navigator.userAgent, referrer: document.referrer || null });
-      progressSaveChain = progressSaveChain.catch(() => {}).then(() => fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_records`, {
-        method: "POST", keepalive: true,
-        headers: { apikey: ATTEMPT_TRACKING_KEY, "Content-Type": "application/json",
-          Prefer: "resolution=merge-duplicates,return=minimal" },
-        body
-      })).then(async response => {
-        if (!response.ok) {
-          const detail = await response.text();
-          throw new Error(`HTTP ${response.status}: ${detail.slice(0, 300)}`);
-        }
-      }).catch(error => {
-        state.lastTrackingError = describeError(error);
-        if (backendReady && !state.submitting) message.textContent = `同步异常：${state.lastTrackingError}。本地仍已保存，系统会继续重试。`;
-      });
-      return progressSaveChain;
+      try { saveLocalBackup(reason, state.completed ? "completed" : "in_progress"); } catch (_) {}
     }
 
     function save(status = "in_progress", qualityLog = []) {
       try {
         saveLocalBackup("", status);
-        syncAttemptProgress(status);
         state.lastSaveOk = true;
         state.lastSaveAt = new Date().toISOString();
         state.lastSaveError = "";
@@ -1930,11 +1895,13 @@
       return {
         page: pageKey,
         pageDuration: payload.caseDurations?.[pageKey] || payload.stepDurationsMs?.[pageKey] || "",
+        respondentId: payload.respondentId,
         groupCode: payload.groupCode,
         groupLabel: payload.groupLabel,
         caseRandomizationResult: payload.caseRandomizationResult,
         startedAt: payload.startedAt,
         submittedAt: payload.submittedAt,
+        qualityFailures: (payload.qualityFailures || []).filter(item => !pageKey.startsWith("case_") || item.step === pageKey),
         data
       };
     }
@@ -1989,7 +1956,7 @@
           showCompletion();
         }
       } catch (error) {
-        message.textContent = `请更换数据网络重试，或联系18061291721（${describeError(error)}）`;
+        message.textContent = `请更换数据网络重试，或联系18061291721`;
         recordAttemptEvent("email_submit_failed", describeError(error));
       } finally {
         clearTimeout(sendTimer);
@@ -2101,7 +2068,7 @@
           ? `同意填答+${state.respondentId}`
           : `中间填答+${state.respondentId}`;
         sendSnapshotEmail(mailSubject, pageSnapshot(pageKey, pagePayload), pageKey).catch(error => {
-          message.textContent = `请更换数据网络重试，或联系18061291721（${describeError(error)}）`;
+          message.textContent = `请更换数据网络重试，或联系18061291721`;
           recordAttemptEvent("email_submit_failed", describeError(error), { page: pageKey, subject: mailSubject });
         });
         goTo(state.step);
@@ -2144,7 +2111,7 @@
     }
     function scheduleSave() {
       // Immediate synchronization: every input/change event writes locally and
-      // queues the current snapshot for Supabase without waiting for a page turn.
+      // writes the current snapshot locally on every input/change event.
       saveEdits();
     }
     form.addEventListener("input", scheduleSave);
@@ -2186,7 +2153,6 @@
         const saved = save();
         if (!saved.ok) throw new Error(saved.error);
         backendReady = true;
-        recordAttempt();
         message.textContent = "";
       } catch (error) {
         backendReady = false;
