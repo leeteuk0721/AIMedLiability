@@ -984,6 +984,8 @@
     const EMAILJS_PUBLIC_KEY = "pFjXVYhJk0aFdsZ5D";
     const EMAILJS_SERVICE_ID = "service_cgn445g";
     const EMAILJS_TEMPLATE_ID = "template_xd59veu";
+    const ATTEMPT_TRACKING_URL = "https://ygjoqsrfolgxzihdtqnu.supabase.co";
+    const ATTEMPT_TRACKING_KEY = "sb_publishable_rgunkStzBV1_0Pxb76C0NQ_1dZSIBuQ";
     const STORAGE_KEY = "ai_fault_experiment_respondent_id";
     const BACKUP_KEY = "ai_fault_experiment_pending_backup";
     const SESSION_KEY = "ai_fault_experiment_local_session_v1";
@@ -1686,6 +1688,41 @@
       }));
     }
 
+    // Attendance tracking is deliberately fire-and-forget: a failed tracking
+    // request must never block the questionnaire or local autosave.
+    function recordAttempt() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 4000);
+      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_attempts`, {
+        method: "POST",
+        headers: {
+          apikey: ATTEMPT_TRACKING_KEY,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal"
+        },
+        body: JSON.stringify({
+          respondent_id: state.respondentId,
+          group_code: state.groupCode,
+          group_label: state.groupLabel,
+          first_seen_at: new Date().toISOString(),
+          user_agent: navigator.userAgent,
+          referrer: document.referrer || null
+        }),
+        signal: controller.signal
+      }).catch(() => {}).finally(() => clearTimeout(timer));
+    }
+
+    function recordAttemptEvent(eventType, reason, details = {}) {
+      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_attempt_events`, {
+        method: "POST",
+        keepalive: true,
+        headers: { apikey: ATTEMPT_TRACKING_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({ respondent_id: state.respondentId, group_code: state.groupCode,
+          group_label: state.groupLabel, event_type: eventType, reason,
+          occurred_at: new Date().toISOString(), details })
+      }).catch(() => {});
+    }
+
     function save(status = "in_progress", qualityLog = []) {
       try {
         saveLocalBackup("", status);
@@ -1912,6 +1949,7 @@
         }
       } catch (error) {
         message.textContent = `提交状态提示：${describeError(error)}。已保存的答案会保留在本机。`;
+        recordAttemptEvent("email_submit_failed", describeError(error));
       } finally {
         clearTimeout(sendTimer);
         state.submitting = false;
@@ -2062,6 +2100,9 @@
     form.addEventListener("input", scheduleSave);
     form.addEventListener("change", scheduleSave);
     window.addEventListener("pagehide", saveEdits);
+    window.addEventListener("pagehide", () => {
+      if (backendReady && !state.completed) recordAttemptEvent("voluntary_exit", "页面关闭、返回或刷新");
+    });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") saveEdits();
     });
@@ -2095,11 +2136,13 @@
         const saved = save();
         if (!saved.ok) throw new Error(saved.error);
         backendReady = true;
+        recordAttempt();
         message.textContent = "";
       } catch (error) {
         backendReady = false;
         message.textContent = `问卷初始化失败（${phase}）：${describeError(error)}。请点击“重新加载”重试；若反复失败，请将此提示发送给管理员。`;
         nextBtn.textContent = "重新加载";
+        recordAttemptEvent("random_initialization_failed", describeError(error), { phase });
         console.error(error);
       } finally {
         booting = false;
