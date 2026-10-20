@@ -1525,7 +1525,8 @@
         totalDuration: formatDuration(totalDurationMs),
         caseDurationsMs,
         caseDurations: Object.fromEntries(Object.entries(caseDurationsMs).map(([key, value]) => [key, formatDuration(value)])),
-        qualityFailures: state.qualityFailures
+        qualityFailures: state.qualityFailures,
+        abnormalEvents: state.abnormalEvents
       };
     }
 
@@ -1767,7 +1768,7 @@
         state.qualityFailures.push(...qualityLog);
         const saved = await save("quality_failed_attempt", qualityLog);
         message.textContent = saved.ok
-          ? "案例理解题回答错误，本次不会发送邮件。请重新阅读本页情景内容，答对后再提交。"
+          ? "案例理解题回答错误，请重新阅读后填答。"
           : `案例理解题回答错误，请重新阅读本页情景内容后再作答。本次答错记录未能保存到本机：${saved.error}`;
         return false;
       }
@@ -1901,6 +1902,7 @@
         caseRandomizationResult: payload.caseRandomizationResult,
         startedAt: payload.startedAt,
         submittedAt: payload.submittedAt,
+        abnormalEvents: payload.abnormalEvents || [],
         qualityFailures: (payload.qualityFailures || []).filter(item => !pageKey.startsWith("case_") || item.step === pageKey),
         data
       };
@@ -2064,13 +2066,15 @@
         }
         const pageKey = steps[previousStep];
         const pagePayload = collectData();
-        const mailSubject = previousStep === 0
-          ? `同意填答+${state.respondentId}`
-          : `中间填答+${state.respondentId}`;
-        sendSnapshotEmail(mailSubject, pageSnapshot(pageKey, pagePayload), pageKey).catch(error => {
-          message.textContent = `请更换数据网络重试，或联系18061291721`;
-          recordAttemptEvent("email_submit_failed", describeError(error), { page: pageKey, subject: mailSubject });
-        });
+        if (previousStep !== 2) {
+          const mailSubject = previousStep === 0
+            ? `同意填答+${state.respondentId}`
+            : `中间填答+${state.respondentId}`;
+          sendSnapshotEmail(mailSubject, pageSnapshot(pageKey, pagePayload), pageKey).catch(error => {
+            message.textContent = `请更换数据网络重试，或联系18061291721`;
+            recordAttemptEvent("email_submit_failed", describeError(error), { page: pageKey, subject: mailSubject });
+          });
+        }
         goTo(state.step);
         message.textContent = "本页已保存，正在发送记录。";
       } catch (error) {
