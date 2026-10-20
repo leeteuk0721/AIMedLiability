@@ -1723,9 +1723,28 @@
       }).catch(() => {});
     }
 
+    function syncAttemptProgress(reason = "") {
+      let payload;
+      try { payload = collectData(); } catch (error) { recordAttemptEvent("progress_save_failed", describeError(error)); return; }
+      fetch(`${ATTEMPT_TRACKING_URL}/rest/v1/survey_attempt_progress`, {
+        method: "POST",
+        keepalive: true,
+        headers: { apikey: ATTEMPT_TRACKING_KEY, "Content-Type": "application/json",
+          Prefer: "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify({ respondent_id: state.respondentId, group_code: state.groupCode,
+          group_label: state.groupLabel, current_step: state.step, payload_json: payload,
+          last_saved_at: new Date().toISOString(), save_reason: reason || null })
+      }).catch(error => {
+        state.lastTrackingError = describeError(error);
+        if (backendReady && !state.submitting) message.textContent = `进度同步异常：${state.lastTrackingError}。本机仍已保存，系统会继续重试。`;
+        recordAttemptEvent("progress_save_failed", state.lastTrackingError, { save_reason: reason });
+      });
+    }
+
     function save(status = "in_progress", qualityLog = []) {
       try {
         saveLocalBackup("", status);
+        syncAttemptProgress(status);
         state.lastSaveOk = true;
         state.lastSaveAt = new Date().toISOString();
         state.lastSaveError = "";
