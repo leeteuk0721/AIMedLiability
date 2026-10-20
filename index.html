@@ -1767,7 +1767,7 @@
         state.qualityFailures.push(...qualityLog);
         const saved = await save("quality_failed_attempt", qualityLog);
         message.textContent = saved.ok
-          ? "案例理解题回答错误，请重新阅读本页情景内容后再作答。"
+          ? "案例理解题回答错误，本次不会发送邮件。请重新阅读本页情景内容，答对后再提交。"
           : `案例理解题回答错误，请重新阅读本页情景内容后再作答。本次答错记录未能保存到本机：${saved.error}`;
         return false;
       }
