@@ -2022,10 +2022,15 @@
       if (record && raw && record.version !== 1) throw new Error("本机进度版本不支持，请联系管理员，勿清除网站数据");
       const payload = record?.payload;
       if (record) {
-        if (!payload || payload.respondentId !== state.respondentId
+        const unassignedConsentState = payload
+          && payload.respondentId === state.respondentId
+          && payload.groupCode == null
+          && Array.isArray(payload.cases) && payload.cases.length === 0
+          && payload.currentStep === 0;
+        if (!unassignedConsentState && (!payload || payload.respondentId !== state.respondentId
             || !Object.prototype.hasOwnProperty.call(groups, payload.groupCode)
             || !Array.isArray(payload.cases) || payload.cases.length !== 4
-            || !Number.isInteger(payload.currentStep) || payload.currentStep < 0 || payload.currentStep > 7) {
+            || !Number.isInteger(payload.currentStep) || payload.currentStep < 0 || payload.currentStep > 7)) {
           throw new Error("本机进度不完整，请联系管理员，勿清除网站数据");
         }
         state.groupCode = payload.groupCode;
@@ -2037,17 +2042,33 @@
         state.emailSent = record.emailSent === true || payload.emailSent === true
           || localStorage.getItem("ai_fault_experiment_email_sent") === state.respondentId;
         state.completed = state.emailSent;
-        state.startedAt = payload.startedAt || state.startedAt;
+        state.startedAt = payload.startedAt || (payload.groupCode ? state.startedAt : "");
         state.surveyStartedMs = Date.parse(state.startedAt) || state.surveyStartedMs;
         state.stepDurationsMs = payload.stepDurationsMs || {};
         state.qualityFailures = Array.isArray(payload.qualityFailures) ? payload.qualityFailures : [];
       } else {
-        state.groupCode = randomGroupCode();
-        state.groupLabel = groups[state.groupCode];
-        state.cases = shuffle(codeCases(state.groupCode, groupCases[state.groupCode]));
-        // Persist the first assignment immediately, before any answers are entered.
-        saveLocalBackup();
+        // Keep the participant unassigned until the first-page consent/confirm
+        // action. This prevents page loads or refreshes from randomizing early.
+        state.groupCode = null;
+        state.groupLabel = null;
+        state.cases = [];
+        state.startedAt = "";
+        state.surveyStartedMs = Date.now();
+        state.savedPayload = payload || null;
       }
+    }
+
+    function assignExperimentOnConsent() {
+      if (state.groupCode && state.cases.length === 4) return false;
+      state.groupCode = randomGroupCode();
+      state.groupLabel = groups[state.groupCode];
+      state.cases = shuffle(codeCases(state.groupCode, groupCases[state.groupCode]));
+      state.startedAt = new Date().toISOString();
+      state.surveyStartedMs = Date.now();
+      state.pageEnteredMs = Date.now();
+      renderInstructions();
+      renderCases();
+      return true;
     }
 
     let advancing = false;
@@ -2065,8 +2086,11 @@
       try {
         if (!(await validateCurrent())) return;
         message.textContent = "";
-        recordCurrentStepDuration();
         const previousStep = state.step;
+        // The first-page confirmation is the consent/assignment boundary.
+        // Randomize only after that validation succeeds.
+        if (previousStep === 0) assignExperimentOnConsent();
+        recordCurrentStepDuration();
         const previousLockedUntil = state.lockedUntil;
         state.lockedUntil = Math.max(state.lockedUntil, state.step + 1);
         state.step += 1;
@@ -2178,8 +2202,12 @@
         restorePayload(state.savedPayload);
         setupResponsiveScales();
         goTo(state.step);
-        const saved = save();
-        if (!saved.ok) throw new Error(saved.error);
+        // There is no assignment to save before consent. Once consent is
+        // given, the first-page handler creates the assignment and saves it.
+        if (state.groupCode && state.cases.length === 4) {
+          const saved = save();
+          if (!saved.ok) throw new Error(saved.error);
+        }
         backendReady = true;
         message.textContent = "";
       } catch (error) {
